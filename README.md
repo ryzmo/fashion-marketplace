@@ -1,40 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# RYZMO
 
-## Getting Started
+## 📌 Tentang Ryzmo
+Ryzmo terinspirasi dari rhizome, akar yang terus tumbuh dan menyebar tanpa batas. Ini melambangkan perubahan, keberlanjutan, dan komunitas yang saling terhubung.
 
-First, run the development server:
+Seperti akar yang terus hidup, Ryzmo hadir untuk mendorong fashion berkelanjutan—membantu orang berbelanja, menukar, memperbaiki, dan mendonasikan pakaian dengan cara yang lebih baik untuk bumi. 🌱♻️
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Ryzmo adalah platform berbasis media sosial yang mendorong gaya hidup berkelanjutan dengan fitur **tukar pakaian**, **perbaikan pakaian**, serta **marketplace fashion ramah lingkungan**. Pengguna dapat mengunggah bukti aksi lingkungan seperti donasi pakaian, pembelian produk berkelanjutan, dan mendapatkan **reward crypto** atas kontribusi mereka.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📖 Cara Menjalankan Project
+1. **Ekstrak file zip** ini:
+   ```ryzmo.zip
+   ```
+2. **Jalankan**:
+   ```npm run start
+   ```
+3. **Buka browser** dan akses `http://localhost:3000`
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+## 🚀 Fitur Utama
+### 1. Tukar Pakaian
+- Pengguna dapat **menukar pakaian bekas yang masih layak pakai** dengan diskon hingga **50%** untuk produk baru.
+- Sistem **penilaian otomatis** akan menentukan apakah pakaian memenuhi syarat untuk ditukar.
+- Formulir unggah foto pakaian tersedia untuk mengevaluasi kelayakan sebelum menukar.
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
+### 2. Perbaikan Pakaian
+- Layanan perbaikan pakaian dengan berbagai pilihan layanan seperti **jahit robek, ganti kancing, permak celana, dan ganti resleting**.
+- Estimasi harga berdasarkan **jenis perbaikan** dan **kondisi pakaian**.
+- Formulir pengajuan perbaikan tersedia dengan sistem estimasi harga otomatis.
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+### 3. Marketplace Berkelanjutan
+- Koleksi **pakaian bekas berkualitas** dan **produk fashion ramah lingkungan**.
+- Sistem filter kategori berdasarkan **Populer, Pria, Wanita, dan Kids**.
+- Halaman produk detail dengan fitur **pilih ukuran dan jumlah barang**.
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Keranjang Belanja
+- Menampilkan daftar produk dalam keranjang dengan fitur:
+  - **Tambah/Kurangi jumlah produk**.
+  - **Hapus produk dari keranjang**.
+  - **Estimasi total harga sebelum checkout**.
+- Tombol **Checkout** untuk melanjutkan ke halaman pembayaran.
 
-## Learn More
+### 5. Checkout & Pembayaran
+- Pengguna dapat memilih **metode pembayaran**:
+  - **Bayar di Tempat (COD)**
+  - **Pembayaran Online**
+- Formulir alamat pengiriman dengan konfirmasi pesanan.
+- Notifikasi sukses setelah pesanan dikonfirmasi.
 
-To learn more about Next.js, take a look at the following resources:
+### 6. Chat dengan Penjual
+- Sistem **percakapan real-time** dengan berbagai toko.
+- Pengguna dapat mengirim dan menerima pesan dalam format bubble chat.
+- Riwayat chat disimpan berdasarkan toko yang pernah dihubungi.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+### 7. Infografis Limbah Tekstil
+- Artikel interaktif tentang **dampak limbah tekstil terhadap lingkungan**.
+- Edukasi tentang cara **mengurangi limbah fashion** melalui daur ulang, perbaikan, dan slow fashion.
+- Ajakan untuk bergabung dalam gerakan **fashion berkelanjutan**.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛠️ Teknologi yang Digunakan
+- **Frontend**: React.js, Next.js, Tailwind CSS
+- **Animasi & UI**: Framer Motion, Lucide Icons, React Icons
+- **State Management**: React Hooks (useState, useEffect, useContext)
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+---
+**Ryzmo** - Bersama Kita Ciptakan Fashion yang Lebih Berkelanjutan! 🌱
