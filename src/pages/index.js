@@ -1,13 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { FaSearch, FaShoppingCart, FaUserCircle, FaCommentDots, FaTimes, FaInstagram, FaTiktok, FaBars } from 'react-icons/fa';
+import { FaSearch, FaCommentDots, FaInstagram, FaTiktok, FaBars, FaPhoneAlt, FaHeart, FaUser, FaShoppingBag, FaWallet } from 'react-icons/fa';
 import Link from 'next/link';
-import SizeRecommendationPopup from '@/pages/size';
 import { useRouter } from 'next/router';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
+import NewArrivalSection from './NewArrivalSection';
+import BestSellingSection from './BestSellingSection';
+import Navbar from './navbar';
+import Footer from './footer';
 
 export default function Home() {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [products, setProducts] = useState([]);
+
   const router = useRouter();
   const [isNavbarVisible, setIsNavbarVisible] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
@@ -18,15 +24,69 @@ export default function Home() {
 
   const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const products = [
-    { id: 7, name: 'Regular Fit Linen Shirt', price: 'Rp175.000', image: '/produk/7/1.png', categories: ['Populer', 'Pria'], description: 'Kemeja linen regular fit kasual.' },
-    { id: 8, name: 'Regular Fit Navy Linen Shirt', price: 'Rp195.000', image: '/produk/8/1.png', categories: ['Populer', 'Pria'], description: 'Kemeja linen navy regular fit.' },
-    { id: 9, name: 'Oversized Fit Denim Shirt', price: 'Rp230.000', image: '/produk/9/1.png', categories: ['Populer', 'Wanita'], description: 'Kemeja denim oversized keren stylish.' },
-    { id: 10, name: 'Classic Denim Casual Shirt', price: 'Rp185.000', image: '/produk/10/1.png', categories: ['Populer', 'Wanita'], description: 'Kemeja denim klasik santai nyaman.' },
+  const [showModal, setShowModal] = useState(false);
+  const [modalImage, setModalImage] = useState("");
+
+  const coupons = [
+    {
+      title: 'DISKON 10%',
+      max: 'Maksimal IDR 10.000',
+      min: 'Minimum Belanja IDR 100.000',
+      image: '/kupon/KODEKUPON10K.jpg',
+    },
+    {
+      title: 'DISKON 15%',
+      max: 'Maksimal IDR 40.000',
+      min: 'Minimum Belanja IDR 300.000',
+      image: '/kupon/KODEKUPON40K.jpg',
+    },
+    {
+      title: 'DISKON IDR 50.000',
+      max: 'Maksimal IDR 50.000',
+      min: 'Minimum Belanja IDR 500.000',
+      image: '/kupon/KODEKUPON50K.jpg',
+    },
+    {
+      title: 'FOLLOWER ONLY DISKON IDR 75.000',
+      max: null,
+      min: 'Minimum Belanja IDR 300.000',
+      image: '/kupon/KODEKUPONFOLL.jpg',
+    },
   ];
 
-  
+  const [search, setSearch] = useState('');
+const [category, setCategory] = useState('');
 
+useEffect(() => {
+  const fetchProducts = async () => {
+    const res = await fetch(`/api/search?search=${search}&category=${category}`);
+    const data = await res.json();
+    setProducts(data.products);
+  };
+
+  fetchProducts();
+}, [search, category]);
+
+const handleSubmit = (e) => {
+  e.preventDefault();
+  router.push(`/shop?search=${search}&category=${category}`); // ✅ hasil akhir
+};
+
+  
+useEffect(() => {
+  const fetchNewArrivalProducts = async () => {
+    try {
+      const res = await fetch('/api/products?category=New');
+      const data = await res.json();
+      if (res.ok) setProducts(data.products);
+      else console.error('Gagal fetch produk:', data.message);
+    } catch (err) {
+      console.error('Fetch error:', err);
+    }
+  };
+
+  fetchNewArrivalProducts();
+}, []);
 
   // Scroll event listener
   useEffect(() => {
@@ -65,495 +125,697 @@ export default function Home() {
   
   return (
     <main className="bg-gray-100 min-h-screen">
-      {/* Navbar */}
-      <nav
-        className={`fixed top-4 left-0 w-full z-50 flex justify-center transition-all duration-500 ease-in-out ${
-          isNavbarVisible
-              ? 'transform translate-y-0 opacity-100'
-              : 'transform -translate-y-10 opacity-0'
-        }`}
-      >
-        <div className="backdrop-blur-md bg-white/40 rounded-full shadow-lg px-6 md:px-16 py-3 flex items-center justify-between w-[90%] max-w-8xl border border-white/20">
-          {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <Image src="/logo.png" alt="Logo" width={120} height={120} className="filter invert" />
-          </div>
+        <Navbar/>
+        <section className="bg-[#A7DED9] py-10 md:py-0">
+  <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between h-auto md:h-[500px] px-4">
+    
+    {/* Kiri: Teks */}
+    <div className="md:w-1/2 text-center md:text-left px-0 md:px-6 mb-8 md:mb-0">
+      <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-black leading-tight">
+        SELAMAT DATANG DI <br /> SITUS RESMI KAMI
+      </h1>
 
-          <div className="flex items-center justify-end w-full space-x-4">
-            {/* Menu Utama - Desktop */}
-            <ul className="hidden md:flex space-x-6 text-gray-800 transition-all duration-300 ease-in-out">
-              <li><Link href="/" className="hover:text-yellow-500 transition">Home</Link></li>
-              <li><Link href="/marketplace" className="hover:text-yellow-500 transition">Produk</Link></li>
-              <li><a href="#siklus" className="hover:text-yellow-500 transition">Siklus Hidup</a></li>
-              <li><a href="#campaign" className="hover:text-yellow-500 transition">Campaign</a></li>
-            </ul>
+      <div className="flex items-center justify-center md:justify-start mt-4">
+        <span className="w-10 h-[2px] bg-gray-300 mr-3"></span>
+        <p className="text-sm font-bold text-red-600 text-center md:text-left">
+          HARGA JAUH LEBIH MURAH DIBANDING DI MARKETPLACE!
+        </p>
+        <span className="w-10 h-[2px] bg-gray-300 ml-3"></span>
+      </div>
 
-            {/* Search & Icons */}
-            <div className="flex items-center space-x-4 relative">
-      {/* Search Input untuk Laptop */}
-      <div
-        className={`hidden md:flex items-center transition-all duration-300 ease-in-out overflow-hidden ${isSearchVisible ? "w-48 opacity-100" : "w-0 opacity-0"}`}
-      >
-        <input
-          type="text"
-          placeholder="Cari produk..."
-          className="px-4 py-2 rounded-full focus:outline-none text-gray-700 w-full"
+      <p className="text-gray-700 mt-4 text-base leading-relaxed">
+  Yuk, jelajahi koleksi fashion muslim terbaru kami.
+  <span className="hidden md:inline"><br /></span>
+  Dirancang dengan sentuhan gaya islami yang modern serta
+  <span className="hidden md:inline"><br /></span>
+  kenyamanan maksimal untuk setiap momen istimewa-mu.
+</p>
+
+
+      <Link href="/shop">
+      <button className="mt-6 bg-black text-white font-bold py-3 px-6 rounded-full hover:bg-gray-800 transition">
+        BELANJA SEKARANG
+      </button>
+      </Link>
+    </div>
+
+    {/* Kanan: Gambar */}
+    <div className="md:w-1/2 w-full flex items-end justify-center md:justify-end h-[300px] md:h-full">
+      <img
+        src="/assets/awalan.png"
+        alt="Fashion Models"
+        className="h-full object-contain"
+      />
+    </div>
+  </div>
+</section>
+
+
+{/* Banner Pengiriman */}
+<section className="bg-white md:py-12 py-6">
+  <div className="max-w-5xl mx-auto px-4">
+    <img
+      src="/assets/BannerPengiriman.png"
+      alt="Banner Pengiriman"
+      className="w-full h-auto object-contain"
+    />
+  </div>
+</section>
+
+<section className="bg-white md:py-16">
+  <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    
+    {/* Card 1: Produk Terbaru */}
+    <div className="bg-[#FDECE8] rounded-lg p-6 flex flex-col justify-between h-full">
+      <div>
+        <span className="inline-block border border-pink-300 text-pink-600 px-4 py-1 rounded-full text-xs font-semibold mb-4">
+          PRODUK TERBARU
+        </span>
+        <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-4">
+          MODERN TAPI TETAP SYAR'I
+        </h3>
+      </div>
+
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-4">
+        <img
+          src="/assets/hero1.png"
+          alt="Produk Terbaru"
+          className="h-64 object-contain mx-auto"
         />
-        <FaTimes className="text-gray-500 hover:text-red-500 cursor-pointer ml-2" onClick={() => setIsSearchVisible(false)} />
-      </div>
-      
-      <AnimatePresence>
-  {isSearchVisible && (
-    <motion.div
-      initial={{ opacity: 0, y: 0 }} // Awalnya transparan & naik 50px
-      animate={{ opacity: 1, y: 0 }}   // Muncul dengan opacity 1 & posisi normal
-      exit={{ opacity: 0, y: 0 }}     // Menghilang dengan opacity 0 & naik ke atas lagi
-      transition={{ duration: 0.3, ease: "easeInOut" }} // Durasi smooth 0.3s
-      className="fixed right-0 w-full bg-white flex items-center px-4 rounded-full py-3 z-50 md:hidden shadow-md border-b border-gray-300"
-    >
-      <input
-        type="text"
-        placeholder="Cari produk..."
-        className="flex-1 px-4 py-2 rounded-full focus:outline-none text-gray-700 border border-gray-300"
-      />
-      <FaTimes 
-        className="text-gray-500 hover:text-red-500 cursor-pointer ml-3 text-2xl" 
-        onClick={() => setIsSearchVisible(false)} // Menutup dengan transisi
-      />
-    </motion.div>
-  )}
-</AnimatePresence>
-
-      {/* Search Icon */}
-      <FaSearch
-        className="text-black md:text-gray-600 text-xl cursor-pointer hover:text-yellow-500 transition"
-        onClick={() => setIsSearchVisible(!isSearchVisible)}
-      />
-
-      {/* Icon Navbar */}
-      <div className="hidden md:flex space-x-4 items-center text-gray-600">
-        <Link href="/cart"><FaShoppingCart className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-        <Link href="/chat"><FaCommentDots className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-        <Link href="/profile"><FaUserCircle className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-      </div>
-
-      {/* Hamburger Menu untuk Mobile */}
-      <div className="md:hidden">
-        <FaBars className="text-2xl text-black cursor-pointer hover:text-yellow-500 transition" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
+        <a href="#NEW">
+        <button className="bg-black text-white text-xs font-bold px-4 py-2 rounded-full hover:bg-gray-800 transition">
+          JELAJAHI SEKARANG
+        </button>
+        </a>
       </div>
     </div>
-          </div>
-        </div>
 
-        {/* Sidebar Menu */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 100, damping: 20 }}
-              className="fixed top-0 right-0 w-50 h-screen backdrop-blur-md bg-white/30 shadow-lg flex flex-col items-end p-6 text-xl text-gray-800 z-40 rounded-l-3xl"
-            >
-              <div className="flex mb-6 border-b border-white/20 w-full justify-end">
-                <button onClick={() => setIsMobileMenuOpen(false)} className="text-teal-800">
-                  <X size={28} />
-                </button>
-              </div>
-              <Link href="/" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
-              <Link href="/marketplace" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Produk</Link>
-              <a href="#siklus" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Siklus Hidup</a>
-              <a href="#campaign" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Campaign</a>
-              <div className="flex space-x-6">
-                <Link href="/cart" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaShoppingCart className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-                <Link href="/chat" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaCommentDots className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-                <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaUserCircle className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+    {/* Card 2: Best Seller */}
+    <div className="bg-[#B5CFC6] rounded-lg p-6 flex flex-col justify-between h-full">
+      <div>
+        <span className="inline-block border border-white text-white px-4 py-1 rounded-full text-xs font-semibold mb-4">
+          PRODUK BEST SELLING
+        </span>
+        <h3 className="text-center text-lg md:text-xl font-bold text-gray-800 mb-4 leading-relaxed">
+          ANEKA PRODUK TERLARIS <br className="hidden sm:block" />
+          DENGAN KUALITAS TERBAIK DI <br className="hidden sm:block" />
+          TOKO KAMI
+        </h3>
+      </div>
 
-      {/* Hero Section */}
-      <section
-  className="relative text-white h-screen flex items-center justify-center px-4 md:px-0"
-  style={{
-    backgroundImage: "url('/bg.png')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-  }}
+      <div className="flex flex-wrap justify-center items-end gap-4 mt-4">
+  <img
+    src="/assets/hero2.png"
+    alt="Produk Terlaris"
+    className="h-40 flex-1 object-contain min-w-[120px]"
+  />
+  <img
+    src="/assets/hero3.png"
+    alt="Produk Terlaris"
+    className="h-40 flex-1 object-contain min-w-[120px]"
+  />
+  
+  <a href="#BEST">
+  <button className="bg-black text-white text-xs rounded-full font-bold px-4 py-2 hover:bg-gray-800 transition w-full sm:w-auto mt-4 sm:mt-0">
+    JELAJAHI SEKARANG
+  </button>
+  </a>
+</div>
+
+    </div>
+
+    {/* Card 3: Diskon */}
+    <div className="bg-[#C7D4E3] rounded-lg p-6 flex flex-col md:flex-row items-center justify-between gap-6 h-full">
+      {/* Gambar Diskon */}
+      <div className="w-full md:w-auto flex-shrink-0 flex justify-center">
+        <img
+          src="/diskon.png"
+          alt="Diskon"
+          className="w-full max-w-[200px] h-auto object-contain"
+        />
+      </div>
+
+      {/* Teks & Tombol */}
+      <div className="text-center md:text-left flex flex-col md:justify-center justify-start w-full">
+        <span className="inline-block border border-gray-400 text-pink-700 px-4 py-1 rounded-full text-xs font-semibold mb-4">
+          PENAWARAN TERBAIK
+        </span>
+
+        <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-4 leading-relaxed">
+          NIKMATI PROMO DAN DISKON <br className="hidden sm:block" />
+          KHUSUS WEBSITE KAMI
+        </h3>
+
+        <a href="#KUPON">
+          <button className="bg-black text-white rounded-full text-xs font-bold px-6 py-2 hover:bg-gray-800 transition mx-auto md:mx-0">
+          KLAIM SEKARANG
+        </button>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+      <section className="md:py-12 pt-6 bg-white">
+  <div className="max-w-5xl mx-auto px-4">
+    <img
+      src="/ATAS1.png" // Ganti dengan path banner kamu
+      alt="Banner Promosi"
+      className="w-full h-auto object-contain rounded-lg shadow"
+    />
+  </div>
+</section>
+
+<section className="md:py-16 pt-12 bg-white">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-10">
+      Kategori Fashion Muslim Perempuan
+    </h2>
+
+    {/* Scrollable Row */}
+    <div className="flex overflow-x-auto gap-4 scrollbar-hide">
+      {[
+        { src: "/MuslimPerempuan/1.jpg", label: "Hijab dan Pashmina" },
+        { src: "/MuslimPerempuan/2.jpg", label: "Mukena Anak - Remaja" },
+        { src: "/MuslimPerempuan/3.jpg", label: "Gamis Baby Sampai Dewasa" },
+        { src: "/MuslimPerempuan/4.jpg", label: "Mukena Dewasa Standar" },
+        { src: "/MuslimPerempuan/5.jpg", label: "Mukena Dewasa Jumbo" },
+        { src: "/MuslimPerempuan/6.jpg", label: "Mukena Travel" },
+        { src: "/MuslimPerempuan/7.jpg", label: "Ciput/Dalaman Hijab" },
+        { src: "/MuslimPerempuan/8.jpg", label: "Bros Aksesoris Hijab" },
+        { src: "/MuslimPerempuan/9.jpg", label: "Ikat dan Jepit Rambut (Unisex)" },
+        { src: "/MuslimPerempuan/10.jpg", label: "Manset Tangan Islami" },
+        { src: "/MuslimPerempuan/11.jpg", label: "Kaos Kaki Islami" },
+        { src: "/MuslimPerempuan/12.jpg", label: "Hijab Sekolah & Pramuka" },
+        { src: "/MuslimPerempuan/13.jpg", label: "Hijab Syar'i" },
+        { src: "/MuslimPerempuan/14.jpg", label: "Bergo Instan Couple Baby - Dewasa" },
+        { src: "/MuslimPerempuan/15.jpg", label: "Bergo Instan - Rendra" },
+        { src: "/MuslimPerempuan/16.jpg", label: "Bergo Instan - Sport" },
+        { src: "/MuslimPerempuan/17.jpg", label: "Bergo Instan Anak - Jersey" },
+        { src: "/MuslimPerempuan/18.jpg", label: "Pashmina - Non Plisket" },
+        { src: "/MuslimPerempuan/19.jpg", label: "Pashmina - Plisket" },
+        // Tambah lainnya...
+      ].map((item, idx) => {
+        const slug = item.label.toLowerCase().replace(/\s+/g, '-'); // Buat slug URL-friendly
+
+        return (
+          <Link
+  key={idx}
+  href={`/kategori/${slug}`}
+  className="block min-w-[120px] sm:min-w-[160px] md:min-w-[180px] max-w-[120px] sm:max-w-[180px] md:max-w-[220px] flex-shrink-0"
 >
-  {/* Overlay hijau dengan opacity */}
-  <div className="absolute inset-0 bg-gradient-to-b from-green-700 to-green-900 opacity-85"></div>
-
-  <div className="relative text-center p-4 md:p-6 max-w-2xl mx-auto mt-10 md:mt-20">
-    <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 md:mb-6 text-white drop-shadow-lg">
-      Ubah Gaya Hidupmu, <span className="text-yellow-400">Selamatkan Bumi</span>
-    </h1>
-    <p className="text-lg sm:text-xl md:text-2xl mb-6 md:mb-8 text-gray-200 drop-shadow-md">
-      Belanja Fashion Berkelanjutan dan Kurangi Limbah Bersama Kami
-    </p>
-    <div className="space-y-3 sm:space-y-0 sm:space-x-4 flex flex-col sm:flex-row items-center justify-center">
-      <Link href="#layananpopuler">
-        <button className="bg-yellow-400 text-gray-800 px-6 sm:px-8 py-3 rounded-full shadow-lg hover:bg-yellow-500 transition-transform transform hover:scale-105 duration-300 w-full sm:w-auto">
-          Mulai Belanja
-        </button>
-      </Link>
-      <Link href="#siklus">
-        <button className="bg-transparent border-2 border-yellow-400 text-yellow-400 px-6 sm:px-8 py-3 rounded-full hover:bg-yellow-400 hover:text-white transition-transform transform hover:scale-105 duration-300 w-full sm:w-auto">
-          Siklus Hidup Fashion
-        </button>
-      </Link>
+  <div className="bg-white text-center hover:shadow-md transition cursor-pointer">
+    <div className="w-full aspect-square rounded overflow-hidden mb-2 sm:mb-3">
+      <img
+        src={item.src}
+        alt={item.label}
+        className="w-full h-full object-cover"
+      />
     </div>
-    {/* Icon Panah ke Bawah */}
-    <div className="mt-12 md:mt-20 animate-bounce">
-      <Link href="#layananpopuler">
-        <svg className="w-6 sm:w-8 h-6 sm:h-8 mx-auto text-yellow-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </Link>
+    <p className="text-xs sm:text-sm font-medium text-gray-800 px-1">
+      {item.label}
+    </p>
+  </div>
+</Link>
+
+
+        );
+      })}
+    </div>
+    {/* Gambar Banner di Bawah */}
+    <div className="mt-6">
+  <img
+    src="/MuslimPerempuan/1A2.png"
+    alt="Banner Perempuan"
+    className="w-full max-w-[1000px] max-h-[300px] object-contain rounded mx-auto"
+  />
+</div>
+
+  </div>
+</section>
+
+<section className="md:py-16 pt-12 bg-white">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-10">
+      Kategori Fashion Muslim Laki-laki
+    </h2>
+
+    {/* Scrollable Row */}
+    <div className="flex overflow-x-auto gap-4 scrollbar-hide">
+      {[
+        { src: "/MuslimLaki-laki/1.jpg", label: "Pakaian Koko Dewasa" },
+        { src: "/MuslimLaki-laki/2.jpg", label: "Pakaian Koko Anak" },
+        { src: "/MuslimLaki-laki/3.jpg", label: "Sarung Celana Anak - Dewasa" },
+        { src: "/MuslimLaki-laki/4.jpg", label: "Sarung Dewasa" },
+        { src: "/MuslimLaki-laki/5.jpg", label: "Sarung Anak" },
+        { src: "/MuslimLaki-laki/6.jpg", label: "Pakaian Koko Dewasa Putih" },
+        { src: "/MuslimLaki-laki/7.jpg", label: "Pakaian Koko Anak Putih" },
+        { src: "/MuslimLaki-laki/8.jpg", label: "Jubah Koko Dewasa" },
+        { src: "/MuslimLaki-laki/9.jpg", label: "Peci Miki Hat" },
+        { src: "/MuslimLaki-laki/10.jpg", label: "Peci Turkey" },
+        { src: "/MuslimLaki-laki/11.jpg", label: "Peci Rajut Oval" },
+        { src: "/MuslimLaki-laki/12.jpg", label: "Peci Rajut Elastis" },
+        { src: "/MuslimLaki-laki/13.jpg", label: "Peci Assagofah dan Terompah" },
+        { src: "/MuslimLaki-laki/14.jpg", label: "Peci Nasional" },
+        // Tambah lainnya...
+      ].map((item, idx) => {
+        const slug = item.label.toLowerCase().replace(/\s+/g, '-'); // Buat slug URL-friendly
+
+        return (
+          <Link
+  key={idx}
+  href={`/kategori/${slug}`}
+  className="block min-w-[120px] sm:min-w-[160px] md:min-w-[180px] max-w-[120px] sm:max-w-[180px] md:max-w-[220px] flex-shrink-0"
+>
+  <div className="bg-white text-center hover:shadow-md transition cursor-pointer">
+    <div className="w-full aspect-square rounded overflow-hidden mb-2 sm:mb-3">
+      <img
+        src={item.src}
+        alt={item.label}
+        className="w-full h-full object-cover"
+      />
+    </div>
+    <p className="text-xs sm:text-sm font-medium text-gray-800 px-1">
+      {item.label}
+    </p>
+  </div>
+</Link>
+
+        );
+      })}
     </div>
   </div>
 </section>
 
+<section className="md:py-16 pt-12 bg-white">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-6">
+      Saksikan Video Kami
+    </h2>
 
-    <section id='layananpopuler' className="py-10 bg-gray-100">
-  <div className="container mx-auto px-6 lg:px-16">
-  <div className="grid grid-cols-5 sm:grid-cols-5 lg:flex lg:flex-wrap justify-center gap-2 sm:gap-2 lg:gap-8">
-
-      
-      <Link href="/marketplace">
-        <div className="flex flex-col items-center cursor-pointer">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/market.png" alt="Shopee Mall" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">Marketplace</p>
-        </div>
-      </Link>
-
-      <Link href={{ pathname: "/marketplace", query: { category: "Pria" } }}>
-        <div className="flex flex-col items-center">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/men.png" alt="Pria" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">Pria</p>
-        </div>
-      </Link>
-
-      <Link href={{ pathname: "/marketplace", query: { category: "Wanita" } }}>
-        <div className="flex flex-col items-center">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/women.png" alt="Wanita" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">Wanita</p>
-        </div>
-      </Link>
-
-      <div className="flex flex-col items-center">
-        <div
-          onClick={() => setIsSizePopupVisible(true)}
-          className="cursor-pointer bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105"
-        >
-          <Image src="/layanan/size.png" alt="Rekomendasi ukuran" width={50} height={50} />
-        </div>
-        <p className="text-sm text-gray-800 mt-2">Ukuran</p>
-      </div>
-
-      <Link href="/ugc">
-        <div className="flex flex-col items-center">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/feed.png" alt="Feed OOTD" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">OOTD</p>
-        </div>
-      </Link>
-
-      <Link href="/swap">
-        <div className="flex flex-col items-center">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/tukar.png" alt="Tukar" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">Tukar</p>
-        </div>
-      </Link>
-
-      <Link href="/repair">
-        <div className="flex flex-col items-center">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/perbaiki.png" alt="Perbaiki" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">Perbaiki</p>
-        </div>
-      </Link>
-
-      <Link href="/challenge">
-        <div className="flex flex-col items-center">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/challenge.png" alt="Challenge" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">Challenge</p>
-        </div>
-      </Link>
-
-      <Link href="/donate">
-        <div className="flex flex-col items-center">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/donate.png" alt="Donate" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">Donate</p>
-        </div>
-      </Link>
-
-      <Link href="#campaign">
-        <div className="flex flex-col items-center">
-          <div className="bg-white rounded-full p-4 shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-            <Image src="/layanan/campaign.png" alt="Campaign" width={50} height={50} />
-          </div>
-          <p className="text-sm text-gray-800 mt-2">Campaign</p>
-        </div>
-      </Link>
-
-      {isSizePopupVisible && (
-        <SizeRecommendationPopup
-          isVisible={isSizePopupVisible}
-          onClose={() => setIsSizePopupVisible(false)}
-        />
-      )}
-
-    </div>
-  </div>
-</section>
-
-
-      {/* Highlight Produk dan Kategori Populer */}
-      <section id="produk-populer" className="py-">
-        <div className="container mx-auto text-center px-6 lg:px-16">
-          <h2 className="text-4xl font-extrabold mb-10 text-green-800">Produk Populer</h2>
-
-          {/* Grid dengan 4 kolom di desktop */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {filteredProducts.map((product) => (
-                        <div
-                          key={product.id}
-                          className="bg-white p-6 rounded-2xl shadow-xl transform transition hover:-translate-y-2 hover:shadow-2xl"
-                          onClick={() => router.push(`/${product.id}`)}
-                        >
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            width={300}
-                            height={300}
-                            className="rounded-lg"
-                          />
-                          <h3 className="mt-4 text-xl font-semibold text-black">{product.name}</h3>
-                          <p className="text-gray-600">{product.description}</p>
-                          <p className="text-lg font-bold text-green-800">{product.price}</p>
-                        </div>
-                      ))}
-          </div>
-
-          {/* Tombol Lihat Lainnya */}
-          <Link href={{ pathname: "/marketplace", query: { category: "Populer" } }}>
-          <div className="mt-10">
-            <button className="bg-green-700 text-white px-8 py-3 rounded-full shadow-md hover:bg-green-600 hover:scale-105 transform transition duration-300">
-              Lihat Lainnya
-            </button>
-          </div>
-          </Link>
-        </div>
-      </section>
-
-      <section className="py-20 bg-gray-100">
-        <div className="container mx-auto text-center">
-          <h2 className="text-5xl font-extrabold mb-10 text-green-800">OOTD Komunitas</h2>
-          <p className="text-lg mb-16 text-gray-600">Bagikan gaya OOTD-mu dengan tagar <span className="text-yellow-500">#EcoFashion</span> dan tampil di sini!</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 px-4 lg:px-16">
-            <div className="bg-white rounded-3xl shadow-xl overflow-hidden transform transition hover:-translate-y-2 hover:shadow-2xl">
-              <Image src="/ootd/1.jpg" alt="#EcoFashion OOTD by @user1" width={500} height={500} className="w-full h-full object-cover" />
-              <div className="p-4">
-                <p className="text-gray-800">#EcoFashion OOTD by @user1</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-3xl shadow-xl overflow-hidden transform transition hover:-translate-y-2 hover:shadow-2xl">
-              <Image src="/ootd/2.jpg" alt="#EcoFashion OOTD by @user2" width={500} height={500} className="w-full h-full object-cover" />
-              <div className="p-4">
-                <p className="text-gray-800">#EcoFashion OOTD by @user2</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-3xl shadow-xl overflow-hidden transform transition hover:-translate-y-2 hover:shadow-2xl">
-              <Image src="/ootd/3.jpg" alt="#EcoFashion OOTD by @user3" width={500} height={500} className="w-full h-full object-cover" />
-              <div className="p-4">
-                <p className="text-gray-800">#EcoFashion OOTD by @user3</p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-10">
-            <Link href='/ugc'><button className="bg-yellow-400 text-gray-800 px-8 py-3 rounded-full shadow-lg hover:bg-yellow-500 transition duration-300">Lihat Lebih Banyak OOTD</button></Link>
-            
-          </div>
-        </div>
-      </section>
-
-      {/* Fashion Lifecycle Section */}
-      <section id='siklus' className="py-20 bg-white">
-        <div className="container mx-auto text-center px-6 lg:px-16">
-          <h2 className="text-5xl font-extrabold mb-10 text-green-800">Siklus Hidup Fashion</h2>
-          <p className="text-lg mb-16 text-gray-600">Jelajahi alur siklus hidup pakaian di platform kami untuk mendukung fashion berkelanjutan.</p>
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-8">
-  {/* Beli */}
-  <div className="bg-white p-10 rounded-3xl shadow-xl transform transition hover:-translate-y-2 hover:shadow-2xl border border-green-300 flex flex-col items-center text-center">
-    <h3 className="text-3xl font-extrabold text-green-800 mb-4">Beli</h3>
-    <p className="text-gray-600 mb-6 leading-relaxed hidden sm:hidden md:block">
-      Dapatkan pakaian preloved berkualitas dengan harga terjangkau dan tetap stylish.
+    <p className="text-center text-gray-600 mb-10">
+      Lihat lebih dekat kualitas produk kami melalui video berikut:
     </p>
-    <a href="/marketplace" className="text-green-700 font-bold hover:underline transition">
-      <span className="inline md:hidden">Jelajahi Sekarang<br/>→</span>
-      <span className="hidden md:inline">Jelajahi Sekarang →</span>
-    </a>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+  {/* Video */}
+  <div className="aspect-video rounded-lg shadow overflow-hidden">
+    <video
+      className="w-full h-full object-cover"
+      controls
+      poster="/jashujan/thumbnail.png"
+    >
+      <source src="/MuslimPerempuan/2A2.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
   </div>
 
-  {/* Tukar */}
-  <div className="bg-white p-10 rounded-3xl shadow-xl transform transition hover:-translate-y-2 hover:shadow-2xl border border-yellow-300 flex flex-col items-center text-center">
-    <h3 className="text-3xl font-extrabold text-yellow-700 mb-4">Tukar</h3>
-    <p className="text-gray-600 mb-6 leading-relaxed hidden sm:hidden md:block">
-      Berikan pakaian lama Anda kesempatan baru dan tukarkan dengan sesuatu yang lebih menarik.
-    </p>
-    <a href="/swap" className="text-yellow-700 font-bold hover:underline transition">
-      <span className="inline md:hidden">Mulai Tukar<br/>→</span>
-      <span className="hidden md:inline">Mulai Tukar →</span>
-    </a>
-  </div>
-
-  {/* Perbaiki */}
-  <div className="bg-white p-10 rounded-3xl shadow-xl transform transition hover:-translate-y-2 hover:shadow-2xl border border-blue-300 flex flex-col items-center text-center">
-    <h3 className="text-3xl font-extrabold text-blue-800 mb-4">Perbaiki</h3>
-    <p className="text-gray-600 mb-6 leading-relaxed hidden sm:hidden md:block">
-      Perpanjang umur pakaian favorit Anda dengan layanan perbaikan yang mudah dan efisien.
-    </p>
-    <a href="/repair" className="text-blue-700 font-bold hover:underline transition">
-      <span className="inline md:hidden">Perbaiki Sekarang<br/>→</span>
-      <span className="hidden md:inline">Perbaiki Sekarang →</span>
-    </a>
-  </div>
-
-  {/* Donasi */}
-  <div className="bg-white p-10 rounded-3xl shadow-xl transform transition hover:-translate-y-2 hover:shadow-2xl border border-red-300 flex flex-col items-center text-center">
-    <h3 className="text-3xl font-extrabold text-red-800 mb-4">Donasi</h3>
-    <p className="text-gray-600 mb-6 leading-relaxed hidden sm:hidden md:block">
-      Bantu mereka yang membutuhkan dengan mendonasikan pakaian yang masih layak pakai.
-    </p>
-    <a href="/donate" className="text-red-700 font-bold hover:underline transition">
-      <span className="inline md:hidden">Donasi Sekarang<br/>→</span>
-      <span className="hidden md:inline">Donasi Sekarang →</span>
-    </a>
+  {/* Banner */}
+  <div className="aspect-video rounded-lg shadow overflow-hidden bg-white flex items-center justify-center">
+    <img
+      src="/MuslimPerempuan/2AB.png"
+      alt="Banner Samping Video"
+      className="w-full h-full object-contain"
+    />
   </div>
 </div>
 
+  </div>
+</section>
 
+
+
+
+<section className="md:py-16 pt-12 bg-white">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-10">
+      Kategori Kopiah/Peci Nasional
+    </h2>
+
+    {/* Scrollable Row */}
+    <div className="flex overflow-x-auto gap-4 scrollbar-hide">
+      {[
+        { src: "/Kopiah-PeciNasional/1.jpg", label: "Kopiah Polos" },
+        { src: "/Kopiah-PeciNasional/2.jpg", label: "Kopiah Premium Exclusive" },
+        { src: "/Kopiah-PeciNasional/3.jpg", label: "Kopiah Bordir Batik" },
+        { src: "/Kopiah-PeciNasional/4.jpg", label: "Kopiah Sablon Batik" },
+        { src: "/Kopiah-PeciNasional/5.jpg", label: "Kopiah Motif NU (Nahdlatul Ulama)" },
+        { src: "/Kopiah-PeciNasional/6.jpg", label: "Kopiah Motif Kartun Favorit Anak" },
+        { src: "/Kopiah-PeciNasional/7.jpg", label: "Kopiah Betawi" },
+        { src: "/Kopiah-PeciNasional/8.jpg", label: "Kopiah Polos Biru" },
+        { src: "/Kopiah-PeciNasional/9.jpg", label: "Kopiah Motif Tauhid" },
+        { src: "/Kopiah-PeciNasional/10.jpg", label: "Kopiah Bordir Kujang" },
+        // Tambah lainnya...
+      ].map((item, idx) => {
+        const slug = item.label.toLowerCase().replace(/\s+/g, '-'); // Buat slug URL-friendly
+
+        return (
+          <Link
+  key={idx}
+  href={`/kategori/${slug}`}
+  className="block min-w-[120px] sm:min-w-[160px] md:min-w-[180px] max-w-[120px] sm:max-w-[180px] md:max-w-[220px] flex-shrink-0"
+>
+  <div className="bg-white text-center hover:shadow-md transition cursor-pointer">
+    <div className="w-full aspect-square rounded overflow-hidden mb-2 sm:mb-3">
+      <img
+        src={item.src}
+        alt={item.label}
+        className="w-full h-full object-cover"
+      />
+    </div>
+    <p className="text-xs sm:text-sm font-medium text-gray-800 px-1">
+      {item.label}
+    </p>
+  </div>
+</Link>
+
+        );
+      })}
+    </div>
+  </div>
+</section>
+
+<section className="md:py-12 pt-12 bg-white">
+  <div className="max-w-5xl mx-auto px-4">
+    <img
+      src="/4A5.png" // Ganti dengan path banner kamu
+      alt="Banner Promosi"
+      className="w-full h-auto object-contain rounded-lg shadow"
+    />
+  </div>
+</section>
+
+
+<section className="md:py-16 pt-12 bg-white">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-10">
+      Kategori Kopiah/Peci Tradisional
+    </h2>
+
+    {/* Scrollable Row */}
+    <div className="flex overflow-x-auto gap-4 scrollbar-hide">
+      {[
+        { src: "/Kopiah-PeciTradisional/1.jpg", label: "Peci Assagofah & Terompah" },
+        { src: "/Kopiah-PeciTradisional/2.jpg", label: "Peci Turkey" },
+        { src: "/Kopiah-PeciTradisional/3.jpg", label: "Peci Miki Hat" },
+        { src: "/Kopiah-PeciTradisional/4.jpg", label: "Peci Khas Malaysia" },
+        { src: "/Kopiah-PeciTradisional/5.jpg", label: "Peci Rajut Oval" },
+        { src: "/Kopiah-PeciTradisional/6.jpg", label: "Peci Rajut Elastis" },
+        { src: "/Kopiah-PeciTradisional/7.jpg", label: "Peci Khusus Haji" },
+        { src: "/Kopiah-PeciTradisional/8.jpg", label: "Kopiah Rajut Priangan" },
+        { src: "/Kopiah-PeciTradisional/9.jpg", label: "Terompah Motif Tauhid & NU" },
+        // Tambah lainnya...
+      ].map((item, idx) => {
+        const slug = item.label.toLowerCase().replace(/\s+/g, '-'); // Buat slug URL-friendly
+
+        return (
+          <Link
+  key={idx}
+  href={`/kategori/${slug}`}
+  className="block min-w-[120px] sm:min-w-[160px] md:min-w-[180px] max-w-[120px] sm:max-w-[180px] md:max-w-[220px] flex-shrink-0"
+>
+  <div className="bg-white text-center hover:shadow-md transition cursor-pointer">
+    <div className="w-full aspect-square rounded overflow-hidden mb-2 sm:mb-3">
+      <img
+        src={item.src}
+        alt={item.label}
+        className="w-full h-full object-cover"
+      />
+    </div>
+    <p className="text-xs sm:text-sm font-medium text-gray-800 px-1">
+      {item.label}
+    </p>
+  </div>
+</Link>
+        );
+      })}
+    </div>
+  </div>
+</section>
+<section className="md:py-16 pt-12 bg-white">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-10">
+      Kategori Perlengkapan Shalat
+    </h2>
+
+    {/* Scrollable Row */}
+    <div className="flex overflow-x-auto gap-4 scrollbar-hide">
+      {[
+        { src: "/PerlengkapanShalat/1.jpg", label: "1. Sajadah Shalat - Besar" },
+        { src: "/PerlengkapanShalat/2.jpg", label: "2. Sajadah Muka" },
+        { src: "/PerlengkapanShalat/3.jpg", label: "3. Sajadah Travel" },
+        { src: "/PerlengkapanShalat/4.jpg", label: "4. Tasbih Digital" },
+        { src: "/PerlengkapanShalat/5.jpg", label: "5. Tasbih Kayu" },
+        { src: "/PerlengkapanShalat/6.jpg", label: "6. Sarung Dewasa" },
+        { src: "/PerlengkapanShalat/7.jpg", label: "6. Tasbih Mutiara" },
+        { src: "/PerlengkapanShalat/8.jpg", label: "7. Sarung Dewasa" },
+        { src: "/PerlengkapanShalat/9.jpg", label: "8. Sarung Celana Anak - Dewasa" },
+        { src: "/PerlengkapanShalat/10.jpg", label: "9. Sarung Anak" },
+        { src: "/PerlengkapanShalat/11.jpg", label: "10. Mukena Dewasa" },
+        { src: "/PerlengkapanShalat/12.jpg", label: "11. Mukena Anak - Remaja" },
+        { src: "/PerlengkapanShalat/13.jpg", label: "12. Mukena Travel" },
+        { src: "/PerlengkapanShalat/14.jpg", label: "13. Kopiah_Peci Nasional" },
+        { src: "/PerlengkapanShalat/15.jpg", label: "14. Kopiah_Peci Tradisional" },
+        // Tambah lainnya...
+      ].map((item, idx) => {
+        const slug = item.label.toLowerCase().replace(/\s+/g, '-'); // Buat slug URL-friendly
+
+        return (
+          <Link
+  key={idx}
+  href={`/kategori/${slug}`}
+  className="block min-w-[120px] sm:min-w-[160px] md:min-w-[180px] max-w-[120px] sm:max-w-[180px] md:max-w-[220px] flex-shrink-0"
+>
+  <div className="bg-white text-center hover:shadow-md transition cursor-pointer">
+    <div className="w-full aspect-square rounded overflow-hidden mb-2 sm:mb-3">
+      <img
+        src={item.src}
+        alt={item.label}
+        className="w-full h-full object-cover"
+      />
+    </div>
+    <p className="text-xs sm:text-sm font-medium text-gray-800 px-1">
+      {item.label}
+    </p>
+  </div>
+</Link>
+
+        );
+      })}
+    </div>
+  </div>
+</section>
+
+<section className="md:py-16 pt-12 bg-white">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-10">
+      Kategori Ciput/Dalaman Hijab
+    </h2>
+
+    {/* Scrollable Row */}
+    <div className="flex overflow-x-auto gap-4 md:gap-10 scrollbar-hide">
+      {[
+        { src: "/Ciput-DalamanHijab/1.jpg", label: "Ciput Rajut - Anak.jpg" },
+        { src: "/Ciput-DalamanHijab/2.jpg", label: "Ciput Rajut - Pita.jpg" },
+        { src: "/Ciput-DalamanHijab/3.jpg", label: "Ciput Rajut - Persegi.jpg" },
+        { src: "/Ciput-DalamanHijab/4.jpg", label: "Ciput Rajut - Kerut_Slouchy" },
+        { src: "/Ciput-DalamanHijab/5.jpg", label: "Ciput Rajut - Topi" },
+        // Tambah lainnya...
+      ].map((item, idx) => {
+        const slug = item.label.toLowerCase().replace(/\s+/g, '-'); // Buat slug URL-friendly
+
+        return (
+          <Link
+  key={idx}
+  href={`/kategori/${slug}`}
+  className="block min-w-[120px] sm:min-w-[160px] md:min-w-[180px] max-w-[120px] sm:max-w-[180px] md:max-w-[220px] flex-shrink-0"
+>
+  <div className="bg-white text-center hover:shadow-md transition cursor-pointer">
+    <div className="w-full aspect-square rounded overflow-hidden mb-2 sm:mb-3">
+      <img
+        src={item.src}
+        alt={item.label}
+        className="w-full h-full object-cover"
+      />
+    </div>
+    <p className="text-xs sm:text-sm font-medium text-gray-800 px-1">
+      {item.label}
+    </p>
+  </div>
+</Link>
+
+        );
+      })}
+    </div>
+  </div>
+</section>
+
+<section className="md:py-16 pt-12 bg-white">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-10">
+      Kategori Aksesoris Hijab
+    </h2>
+
+    {/* Scrollable Row */}
+    <div className="flex overflow-x-auto gap-4 md:gap-10 scrollbar-hide">
+      {[
+        { src: "/AksesorisHijab/1.jpg", label: "Bros_Pin Hijab" },
+        { src: "/AksesorisHijab/2.jpg", label: "Jarum Pentul Hijab" },
+        { src: "/AksesorisHijab/3.jpg", label: "Peniti Hijab" },
+        { src: "/AksesorisHijab/4.jpg", label: "Ikat Rambut" },
+        { src: "/AksesorisHijab/5.jpg", label: "Jepit Rambut" },
+        // Tambah lainnya...
+      ].map((item, idx) => {
+        const slug = item.label.toLowerCase().replace(/\s+/g, '-'); // Buat slug URL-friendly
+
+        return (
+          <Link
+  key={idx}
+  href={`/kategori/${slug}`}
+  className="block min-w-[120px] sm:min-w-[160px] md:min-w-[180px] max-w-[120px] sm:max-w-[180px] md:max-w-[220px] flex-shrink-0"
+>
+  <div className="bg-white text-center hover:shadow-md transition cursor-pointer">
+    <div className="w-full aspect-square rounded overflow-hidden mb-2 sm:mb-3">
+      <img
+        src={item.src}
+        alt={item.label}
+        className="w-full h-full object-cover"
+      />
+    </div>
+    <p className="text-xs sm:text-sm font-medium text-gray-800 px-1">
+      {item.label}
+    </p>
+  </div>
+</Link>
+
+        );
+      })}
+    </div>
+  </div>
+</section>
+
+<section className="md:py-12 pt-12 bg-white">
+  <div className="max-w-5xl mx-auto px-4">
+    <img
+      src="/dibawah7.png" // Ganti dengan path banner kamu
+      alt="Banner Promosi"
+      className="w-full h-auto object-contain rounded-lg shadow"
+    />
+  </div>
+</section>
+
+<section className="md:py-12 pt-12 bg-white">
+  <div className="max-w-5xl mx-auto px-4">
+    <img
+      src="/dibawah7.2.png" // Ganti dengan path banner kamu
+      alt="Banner Promosi"
+      className="w-full h-auto object-contain rounded-lg shadow"
+    />
+  </div>
+</section>
+
+<section id="NEW">
+      <NewArrivalSection />
+</section>
+
+<section id="BEST">
+      <BestSellingSection />
+</section>
+
+
+<section id="KUPON" className="md:py-20 pt-14 bg-white relative z-0">
+  <div className="max-w-7xl mx-auto px-4">
+    {/* Title */}
+    <div className="flex items-center justify-center mb-10">
+      <div className="flex-grow h-px bg-gray-300" />
+      <h2 className="mx-4 text-lg sm:text-xl font-bold px-6 py-2 bg-red-600 text-white rounded shadow">
+        STORE COUPONS
+      </h2>
+      <div className="flex-grow h-px bg-gray-300" />
+    </div>
+
+    {/* Coupons Grid */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      {coupons.map((coupon, index) => (
+        <div
+          key={index}
+          className="border border-red-400 border-dashed rounded-2xl p-5 bg-white shadow-sm hover:shadow-lg transition-all duration-200 text-center"
+        >
+          <div className="text-red-600 font-bold text-2xl mb-2">{coupon.title}</div>
+          {coupon.max && (
+            <p className="text-gray-700 text-sm font-medium mb-1">Max: {coupon.max}</p>
+          )}
+          <p className="text-gray-700 text-sm font-medium mb-4">Min: {coupon.min}</p>
+
+          <button
+            onClick={() => {
+              setModalImage(coupon.image);
+              setShowModal(true);
+            }}
+            className="mt-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
+          >
+            KLAIM SEKARANG
+          </button>
         </div>
-      </section>
+      ))}
+    </div>
+  </div>
 
-      {/* Campaign & Edukasi */}
-      <section id='campaign' className="py-16 bg-gray-50">
-        <div className="container mx-auto text-center px-6 lg:px-16">
-          <h2 className="text-5xl font-extrabold mb-10 text-green-800">Campaign & Edukasi</h2>
-          {/* Campaign Banner */}
-          <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-800 rounded-3xl p-10 shadow-lg transform transition hover:-translate-y-2 hover:shadow-2xl mb-10 mx-4 md:mx-0">
-            <h3 className="text-3xl font-bold mb-4">Challenge Kumpulkan Koin</h3>
-            <p className="text-lg mb-6">Ayo ikut tantangan dan mulai gaya hidup yang lebih berkelanjutan!</p>
-            <Link href='/challenge'><button className="bg-gray-800 text-yellow-400 px-8 py-3 rounded-full shadow-md hover:bg-gray-700 transition duration-300">Ikut Tantangan</button></Link>
-          </div>
-
-          {/* Edukasi Singkat */}
-          <div className="px-4 md:px-0 flex justify-center">
-        <div className="bg-white p-6 rounded-3xl shadow-xl transform transition hover:-translate-y-2 hover:shadow-2xl w-fit flex flex-col items-center">
-          <Image 
-            src="/infografis.png" 
-            alt="Infografis Limbah Tekstil" 
-            width={900} 
-            height={800} 
-            className="rounded-lg"
-          />
-          <h4 className="mt-4 text-2xl font-semibold text-center text-black mb-2">Limbah Tekstil yang Mengancam Lingkungan</h4>
-          <p className="text-gray-600 text-center">Ketahui dampak limbah tekstil dan cara menguranginya.</p>
-          <Link href="/infografis">
-            <button className="mt-4 bg-green-700 text-white px-6 py-3 rounded-full shadow-md hover:bg-green-600 transition duration-300">
-              Baca Selengkapnya
-            </button>
-          </Link>
-        </div>
+  {/* Modal Popup */}
+  {showModal && (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-md relative animate-fade-in">
+        <button
+          onClick={() => setShowModal(false)}
+          className="absolute top-3 right-3 text-gray-500 hover:text-black text-lg font-bold"
+        >
+          &times;
+        </button>
+        <img src={modalImage} alt="Kupon" className="w-full h-auto rounded-md" />
       </div>
+    </div>
+  )}
+</section>
 
-        </div>
-      </section>
 
-      {/* Footer Informasi Lengkap */}
-      <footer className="bg-gray-900 text-gray-400 py-16">
-        <div className="container mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 px-6 lg:px-16">
-          
-          {/* Bergabung dengan Gerakan Kami */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4">Bergabung dengan Gerakan Kami</h3>
-            <p className="text-gray-500 mb-4 text-justify">
-              Dukung gerakan fashion berkelanjutan dan menjadi bagian dari perubahan positif untuk lingkungan. Ayo berkontribusi dalam mengurangi limbah fashion!
-            </p>
-            <ul className="space-y-2">
-              <li><a href="/swap" className="hover:text-yellow-500 transition duration-300">Tukar Pakaian</a></li>
-              <li><a href="/repair" className="hover:text-yellow-500 transition duration-300">Perbaiki Pakaian</a></li>
-              <li><a href="/infografis" className="hover:text-yellow-500 transition duration-300">Baca Artikel Keberlanjutan</a></li>
-            </ul>
-          </div>
+    <section className="bg-white md:py-16 py-12">
+  <div className="max-w-7xl mx-auto px-4">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-10">
+      Apa Kata Mereka Tentang Kami
+    </h2>
 
-          {/* Sosial Media */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4">Ikuti Kami</h3>
-            <ul className="flex space-x-6">
-              <li>
-                <a href="#" className="hover:text-yellow-500 transition duration-300">
-                  <FaInstagram className="text-2xl" />
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-yellow-500 transition duration-300">
-                  <FaTiktok className="text-2xl" />
-                </a>
-              </li>
-            </ul>
-          </div>
+    <div className="overflow-x-auto scrollbar-hide">
+  <div className="flex gap-4">
+    {[
+      "/testimoni/1.png",
+      "/testimoni/2.png",
+      "/testimoni/3.png",
+      "/testimoni/4.png",
+      "/testimoni/5.png",
+      "/testimoni/6.png",
+    ].map((src, index) => (
+      <div
+  key={index}
+  className="min-w-[160px] max-w-[90vw] sm:min-w-[200px] sm:max-w-[45vw] md:min-w-[300px] md:max-w-[600px] flex-shrink-0 bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden"
+>
+  <img
+    src={src}
+    alt={`Testimoni ${index + 1}`}
+    className="w-full h-[200px] sm:h-[200px] md:h-[300px] object-cover"
+  />
+</div>
 
-          {/* Informasi Legal */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4">Informasi Legal</h3>
-            <ul>
-              <li><a href="/terms" className="hover:text-yellow-500 transition duration-300">Syarat & Ketentuan</a></li>
-              <li><a href="/privacy" className="hover:text-yellow-500 transition duration-300">Kebijakan Privasi</a></li>
-              <li><span className="text-gray-600 text-sm">© 2025 Ryzmo</span></li>
-            </ul>
-          </div>
+    ))}
+  </div>
+</div>
 
-          {/* Tentang Kami */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4">Tentang Kami</h3>
-            <p className="text-gray-500 mb-4 text-justify">
-              Ryzmo adalah platform yang bertujuan menciptakan perubahan dalam industri fashion, mengurangi limbah, dan mendorong gaya hidup ramah lingkungan. Bergabunglah dalam gerakan untuk masa depan fashion yang lebih hijau!
-            </p>
-            <a href="/about" className="text-yellow-500 hover:text-white transition duration-300 font-semibold">Pelajari Lebih Lanjut →</a>
-          </div>
+  </div>
+</section>
 
-        </div>
-
-        {/* Footer Bottom */}
-        <div className="mt-12 text-center text-gray-500 text-sm">
-          <p>Built with 💚 by Ryzmo. All Rights Reserved.</p>
-        </div>
-      </footer>
+ 
+      <Footer/>
     </main>
   );
 }

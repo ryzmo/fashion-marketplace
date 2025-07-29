@@ -1,271 +1,355 @@
-// pages/cart.js
-import Image from 'next/image';
-import { useState, useRef, useContext } from 'react';
-import { FaSearch, FaShoppingCart, FaUserCircle, FaCommentDots, FaTimes, FaInstagram, FaTiktok, FaBars } from 'react-icons/fa';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CartContext } from "./_app";
+import { withAuth } from '../../middleware/withAuth';
 import { useRouter } from 'next/router';
-import { X } from 'lucide-react';
-import { motion, AnimatePresence } from "framer-motion";
+import { FaSearch, FaCommentDots, FaInstagram, FaTiktok, FaBars, FaPhoneAlt, FaHeart, FaUser, FaShoppingBag, FaWallet } from 'react-icons/fa';
+import LoadingBar from './LoadingBar';
+import Navbar from './navbar';
+import Footer from './footer';
 
-export default function Cart() {
+export default function CartPage({ userId }) {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [products, setProducts] = useState([]);
   const router = useRouter();
-  // Dummy data keranjang
-  const { cartItems, setCartItems } = useContext(CartContext);
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState('');
+  const [autoDiscountActive, setAutoDiscountActive] = useState(false);
 
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
-    const [isNavbarVisible, setIsNavbarVisible] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const searchRef = useRef(null);
 
-  // Menghitung total harga
+  useEffect(() => {
+    const fetchCart = async () => {
+      try {
+        const res = await fetch(`/api/cart/${userId}`);
+        const data = await res.json();
+        setCartItems(data);
+      } catch (err) {
+        console.error('Gagal ambil keranjang:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (userId) fetchCart();
+  }, [userId]);
 
-  // Menambah jumlah produk
-  const increaseQuantity = (id) => {
-    setCartItems(
-      cartItems.map((item) =>
-        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
-      )
-    );
+  const getTotal = () => {
+    return cartItems.reduce((total, item) => {
+      const harga = item.price;
+      return total + harga * item.quantity;
+    }, 0);
   };
 
-  const decreaseQuantity = (id) => {
-    setCartItems(
-      cartItems.map((item) =>
-        item.id === id && item.quantity > 1
-          ? { ...item, quantity: item.quantity - 1 }
-          : item
-      )
-    );
+  const getTotalWithDiscount = () => {
+    const total = getTotal();
+    return total - (discount / 100) * total;
   };
 
-  // Menghapus produk dari keranjang
-  const removeItem = (id) => {
-    setCartItems(cartItems.filter((item) => item.id !== id));
+  const updateQuantity = async (cartItemId, newQty) => {
+    if (newQty < 1) return;
+    try {
+      const res = await fetch(`/api/cart/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: cartItemId, quantity: newQty }),
+      });
+      const updated = await res.json();
+      setCartItems((prev) =>
+        prev.map((item) =>
+          item.id === cartItemId ? { ...item, quantity: updated.quantity } : item
+        )
+      );
+    } catch (err) {
+      console.error('Gagal update jumlah:', err);
+    }
   };
 
-  const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const deleteItem = async (cartItemId) => {
+    try {
+      await fetch(`/api/cart/${userId}?itemId=${cartItemId}`, {
+        method: 'DELETE',
+      });
+      setCartItems((prev) => prev.filter((item) => item.id !== cartItemId));
+    } catch (err) {
+      console.error('Gagal hapus item:', err);
+    }
   };
+
+  const getEligibleTotal = () => {
+    return cartItems.reduce((total, item) => {
+      const harga = item.price;
+      const kategoriProduk = item.product.categories?.map((c) => c.name) || [];
+  
+      // Kecualikan jika ada kategori "Cannot use coupon"
+      if (kategoriProduk.includes("Cannot use coupon")) return total;
+  
+      return total + harga * item.quantity;
+    }, 0);
+  };
+  
+
+  const applyCoupon = async () => {
+    // Cegah override jika diskon otomatis sedang aktif
+    if (autoDiscountActive) {
+      setCouponMessage('Diskon otomatis aktif (Gamis & Hijab). Kupon tidak bisa digunakan.');
+      return;
+    }
+  
+    try {
+      const res = await fetch('/api/coupons');
+      if (!res.ok) throw new Error('Gagal mengambil kupon');
+  
+      const allCoupons = await res.json();
+      const coupon = allCoupons.find(
+        (c) => c.code.toLowerCase() === couponCode.toLowerCase()
+      );
+  
+      if (!coupon) {
+        setDiscount(0);
+        setCouponMessage('Kupon tidak ditemukan atau tidak valid.');
+        return;
+      }
+  
+      const eligibleTotal = getEligibleTotal();
+  
+      if (eligibleTotal < coupon.minPurchase) {
+        setDiscount(0);
+        setCouponMessage(`Minimal pembelian Rp${coupon.minPurchase.toLocaleString('id-ID')} untuk menggunakan kupon ini (produk yang eligible).`);
+        return;
+      }
+  
+      const calculatedDiscount = (coupon.discountPercent / 100) * eligibleTotal;
+      const finalDiscount = Math.min(calculatedDiscount, coupon.maxDiscount);
+  
+      // Konversi diskon tetap ke persen dari total keseluruhan
+      const total = getTotal();
+      const effectivePercent = (finalDiscount / total) * 100;
+      setDiscount(effectivePercent);
+  
+      setCouponMessage(
+        `Kupon diterapkan: Diskon ${coupon.discountPercent}% (maks Rp${coupon.maxDiscount.toLocaleString('id-ID')})`
+      );
+    } catch (err) {
+      console.error('Gagal validasi kupon:', err);
+      setDiscount(0);
+      setCouponMessage('Terjadi kesalahan saat memproses kupon.');
+    }
+  };
+  
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch(`/api/search?search=${search}&category=${category}`);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Gagal fetch: ${res.status} - ${text}`);
+        }
+
+        const data = await res.json();
+        setProducts(data.products);
+      } catch (err) {
+        console.error('Error saat fetch data produk:', err.message);
+      }
+    };
+
+    fetchProducts();
+  }, [search, category]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    router.push(`/shop?search=${search}&category=${category}`);
+  };
+
+  const getCouponId = async (code) => {
+    const res = await fetch('/api/coupons');
+    const allCoupons = await res.json();
+    const found = allCoupons.find((c) => c.code.toLowerCase() === code.toLowerCase());
+    return found?.id || null;
+  };
+  
+
+  const handleCheckout = async () => {
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          cartItems,
+          couponCode: couponCode || null,
+          discountPercent: discount,
+          couponId: couponCode
+            ? (await getCouponId(couponCode)) // fungsi tambahan di bawah
+            : null,
+        }),
+      });
+  
+      const data = await res.json();
+      if (res.ok) {
+        alert('Checkout berhasil! 🎉');
+        router.push('/order/success'); // arahkan ke halaman sukses
+      } else {
+        alert(data.message || 'Checkout gagal');
+      }
+    } catch (err) {
+      console.error('Error saat checkout:', err);
+      alert('Checkout gagal');
+    }
+  };
+  
+  useEffect(() => {
+    const kategoriSet = new Set();
+    cartItems.forEach((item) => {
+      item.product.categories?.forEach((cat) => {
+        kategoriSet.add(cat.name);
+      });
+    });
+  
+    if (kategoriSet.has("Gamis") && kategoriSet.has("Hijab")) {
+      setAutoDiscountActive(true);
+      setDiscount(10);
+      setCouponMessage("Diskon 10% otomatis karena membeli Gamis & Hijab");
+    } else {
+      setAutoDiscountActive(false);
+    }
+  }, [cartItems]);
+  
+  
+
+  if (loading) return <LoadingBar/>;
 
   return (
-    <main className="bg-gray-100 min-h-screen flex flex-col">
-
-      {/* Navbar */}
-      <nav
-        className="fixed top-4 left-0 w-full z-50 flex justify-center transition-all duration-500 ease-in-out
-        "
-      >
-        <div className="backdrop-blur-md bg-white/40 rounded-full shadow-lg px-6 md:px-16 py-3 flex items-center justify-between w-[90%] max-w-8xl border border-white/20">
-          {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <Image src="/logo.png" alt="Logo" width={120} height={120} className="filter invert" />
-            <div className="text-md sm:text-sm md:text-xl lg:text-2xl text-green-800 font-bold">
-              Keranjang
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end w-full space-x-4">
-            {/* Menu Utama - Desktop */}
-            <ul className="hidden md:flex space-x-6 text-gray-800 transition-all duration-300 ease-in-out">
-              <li><Link href="/" className="hover:text-yellow-500 transition">Home</Link></li>
-              <li><Link href="/marketplace" className="hover:text-yellow-500 transition">Produk</Link></li>
-              <li><a href="/#siklus" className="hover:text-yellow-500 transition">Siklus Hidup</a></li>
-              <li><a href="/#campaign" className="hover:text-yellow-500 transition">Campaign</a></li>
-            </ul>
-
-            {/* Search & Icons */}
-            <div className="flex items-center space-x-4 relative">
-      {/* Search Input untuk Laptop */}
-      <div
-        className={`hidden md:flex items-center transition-all duration-300 ease-in-out overflow-hidden ${isSearchVisible ? "w-48 opacity-100" : "w-0 opacity-0"}`}
-      >
-        <input
-          type="text"
-          placeholder="Cari produk..."
-          className="px-4 py-2 rounded-full focus:outline-none text-gray-700 w-full"
-        />
-        <FaTimes className="text-gray-500 hover:text-red-500 cursor-pointer ml-2" onClick={() => setIsSearchVisible(false)} />
+    <main className="bg-white">
+      <Navbar/>
+      <div className="max-w-6xl min-h-screen bg-white mx-auto px-4 py-10">
+      <div className="bg-white border-b mb-4 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 mb-6">
+  <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">Keranjang</h1>
+  <p className="text-sm text-gray-500">
+    Lihat dan kelola barang-barang yang ingin kamu beli
+  </p>
+</div>
       </div>
-      
-      <AnimatePresence>
-  {isSearchVisible && (
-    <motion.div
-      initial={{ opacity: 0, y: 0 }} // Awalnya transparan & naik 50px
-      animate={{ opacity: 1, y: 0 }}   // Muncul dengan opacity 1 & posisi normal
-      exit={{ opacity: 0, y: 0 }}     // Menghilang dengan opacity 0 & naik ke atas lagi
-      transition={{ duration: 0.3, ease: "easeInOut" }} // Durasi smooth 0.3s
-      className="fixed right-0 w-full bg-white flex items-center px-4 rounded-full py-3 z-50 md:hidden shadow-md border-b border-gray-300"
-    >
+
+
+        {cartItems.length === 0 ? (
+          <p className="text-gray-600 text-center">Keranjang kamu masih kosong. Yuk belanja dulu!</p>
+        ) : (
+          <div className="bg-white shadow rounded-lg p-4 sm:p-6 space-y-6">
+  {cartItems.map((item) => {
+    const harga = item.price;
+    return (
+      <div key={item.id} className="flex flex-row sm:flex-row gap-4 sm:gap-6 items-start sm:items-center border-b pb-6">
+        {/* Gambar Produk */}
+        <Link href={`/produk/${item.product.id}`} className="shrink-0">
+          <img
+            src={typeof item.product.imageUrls[0] === 'string' ? item.product.imageUrls[0] : item.product.imageUrls[0]?.url}
+            alt={item.product.name}
+            className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-lg hover:opacity-90 transition cursor-pointer"
+          />
+        </Link>
+
+        {/* Detail Produk */}
+        <div className="flex-1 w-full space-y-1">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800">{item.product.name}</h2>
+          {item.color && (
+    <p className="text-sm text-gray-500">Warna: {item.color}</p>
+  )}
+          <p className="text-sm text-gray-500">Ukuran: {item.size}</p>
+          {item.product.categories?.some((c) => c.name === 'Cannot use coupon') && (
+            <p className="text-xs text-red-500 mt-1">Kupon tidak berlaku untuk produk ini</p>
+          )}
+
+          {/* Jumlah & Hapus */}
+          <div className="flex items-center gap-3 mt-3 text-black">
+            <button
+              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+              className="px-2 py-1 text-sm border rounded hover:bg-gray-100"
+            >−</button>
+            <span className="font-medium text-gray-700">{item.quantity}</span>
+            <button
+              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+              className="px-2 py-1 text-sm border rounded hover:bg-gray-100"
+            >+</button>
+          </div>
+          <button
+            onClick={() => deleteItem(item.id)}
+            className="text-xs text-red-500 hover:underline mt-1"
+          >
+            Hapus dari keranjang
+          </button>
+        </div>
+
+        {/* Harga Total */}
+        <div className="text-right font-semibold text-blue-600 text-base sm:text-lg sm:ml-auto">
+          Rp{(harga * item.quantity).toLocaleString('id-ID')}
+        </div>
+      </div>
+    );
+  })}
+
+  {/* Input Kupon */}
+  <div className="mt-4 text-black">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Punya kupon diskon?
+    </label>
+    <div className="flex flex-col sm:flex-row gap-2">
       <input
         type="text"
-        placeholder="Cari produk..."
-        className="flex-1 px-4 py-2 rounded-full focus:outline-none text-gray-700 border border-gray-300"
+        value={couponCode}
+        onChange={(e) => setCouponCode(e.target.value)}
+        placeholder="Masukkan kode kupon"
+        className="flex-1 px-4 py-2 border rounded focus:outline-none"
       />
-      <FaTimes 
-        className="text-gray-500 hover:text-red-500 cursor-pointer ml-3 text-2xl" 
-        onClick={() => setIsSearchVisible(false)} // Menutup dengan transisi
-      />
-    </motion.div>
-  )}
-</AnimatePresence>
-
-      {/* Search Icon */}
-      <FaSearch
-        className="text-black md:text-gray-600 text-xl cursor-pointer hover:text-yellow-500 transition"
-        onClick={() => setIsSearchVisible(!isSearchVisible)}
-      />
-
-      {/* Icon Navbar */}
-      <div className="hidden md:flex space-x-4 items-center text-gray-600">
-        <Link href="/cart"><FaShoppingCart className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-        <Link href="/chat"><FaCommentDots className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-        <Link href="/profile"><FaUserCircle className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-      </div>
-
-      {/* Hamburger Menu untuk Mobile */}
-      <div className="md:hidden">
-        <FaBars className="text-2xl text-black cursor-pointer hover:text-yellow-500 transition" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-      </div>
+      <button
+        onClick={applyCoupon}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >
+        Terapkan
+      </button>
     </div>
-          </div>
-        </div>
+    {couponMessage && (
+      <p className={`mt-2 text-sm ${discount > 0 ? 'text-green-600' : 'text-red-500'}`}>
+        {couponMessage}
+      </p>
+    )}
+  </div>
 
-        {/* Sidebar Menu */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 100, damping: 20 }}
-              className="fixed top-0 right-0 w-50 h-screen backdrop-blur-md bg-white/30 shadow-lg flex flex-col items-end p-6 text-xl text-gray-800 z-40 rounded-l-3xl"
-            >
-              <div className="flex mb-6 border-b border-white/20 w-full justify-end">
-                <button onClick={() => setIsMobileMenuOpen(false)} className="text-teal-800">
-                  <X size={28} />
-                </button>
-              </div>
-              <Link href="/" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
-              <Link href="/marketplace" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Produk</Link>
-              <a href="#siklus" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Siklus Hidup</a>
-              <a href="#campaign" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Campaign</a>
-              <div className="flex space-x-6">
-                <Link href="/cart" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaShoppingCart className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-                <Link href="/chat" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaCommentDots className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-                <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaUserCircle className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+  {/* Total & Checkout */}
+  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-6 gap-4">
+    <div className="text-gray-800 text-base sm:text-lg font-semibold">
+      Total: Rp{getTotalWithDiscount().toLocaleString('id-ID')}
+      {discount > 0 && (
+        <span className="block text-sm font-normal text-green-600">
+          Diskon {discount}% dari Rp{getTotal().toLocaleString('id-ID')}
+        </span>
+      )}
+    </div>
 
-      <div className="container mx-auto px-6 lg:px-16 mt-10 mb-10 pt-4 py-2 flex-grow">
-        {/* Daftar Produk di Keranjang */}
-        <div className="bg-white shadow-lg rounded-3xl p-6 mt-16">
-          {cartItems.length > 0 ? (
-            cartItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between mb-6 border-b pb-4"
-              >
-                <div className="flex items-center space-x-4">
-                  <Image
-                    src={item.images[0]}
-                    alt={item.name}
-                    width={80}
-                    height={80}
-                    className="rounded-lg"
-                  />
-                  <div>
-                    <h3 className="text-lg font-semibold text-black">{item.name}</h3>
-                    <p className="text-yellow-500 font-bold">
-                      Rp{item.price.toLocaleString('id-ID')}
-                    </p>
-                  </div>
-                </div>
+    <button
+      onClick={() => router.push('/checkout')}
+      className="w-full sm:w-auto px-6 py-3 bg-black text-white text-sm font-semibold rounded-full hover:bg-gray-800 transition"
+    >
+      Checkout Sekarang
+    </button>
+  </div>
+</div>
 
-                {/* Total Harga Produk */}
-                <div className="text-right space-x-2">
-                <button
-                    onClick={() => decreaseQuantity(item.id)}
-                    className="bg-gray-300 text-gray-800 w-8 h-8 rounded-full hover:bg-gray-400 transition"
-                  >
-                    -
-                  </button>
-                  <span className="text-lg font-semibold text-black">{item.quantity}</span>
-                  <button
-                    onClick={() => increaseQuantity(item.id)}
-                    className="bg-yellow-400 text-gray-800 w-8 h-8 rounded-full hover:bg-yellow-500 transition"
-                  >
-                    +
-                  </button>
-                  <p className="text-lg font-bold text-green-800">
-                    Rp{(item.price * item.quantity).toLocaleString('id-ID')}
-                  </p>
-                  <button
-                    onClick={() => removeItem(item.id)}
-                    className="text-red-500 text-sm hover:text-red-600 transition"
-                  >
-                    Hapus
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-center text-gray-600">Keranjang Anda kosong.</p>
-          )}
-        </div>
-
-        {/* Total Harga dan Checkout */}
-        {cartItems.length > 0 && (
-          <div className="mt-8 bg-white shadow-lg rounded-3xl p-6 flex justify-between items-center">
-            <div>
-              <h3 className="text-xl font-semibold text-black">Total Harga:</h3>
-              <p className="text-3xl font-bold text-green-800">
-                Rp{calculateTotal().toLocaleString('id-ID')}
-              </p>
-            </div>
-            <button
-  className="bg-green-700 text-white px-8 py-3 rounded-full shadow-md hover:bg-green-600 hover:scale-105 transform transition duration-300"
-  onClick={() => router.push('/checkout')}
->
-              Checkout
-            </button>
-          </div>
         )}
       </div>
-      
-      <footer className="bg-gray-900 text-gray-400 py-10 text-center">
-        <div className="container mx-auto px-6">
-          
-          {/* Menu Footer */}
-          <ul className="flex flex-wrap justify-center space-x-6 mb-4">
-            <li><a href="/swap" className="hover:text-yellow-500 transition">Tukar Pakaian</a></li>
-            <li><a href="/repair" className="hover:text-yellow-500 transition">Perbaiki</a></li>
-            <li><a href="/infografis" className="hover:text-yellow-500 transition">Artikel</a></li>
-            <li><a href="/terms" className="hover:text-yellow-500 transition">Syarat</a></li>
-            <li><a href="/privacy" className="hover:text-yellow-500 transition">Privasi</a></li>
-            <li><a href="/about" className="hover:text-yellow-500 transition">Tentang</a></li>
-          </ul>
-      
-          {/* Sosial Media */}
-          <div className="flex justify-center space-x-6 mb-4">
-            <a href="#" className="hover:text-yellow-500 transition text-2xl"><FaInstagram /></a>
-            <a href="#" className="hover:text-yellow-500 transition text-2xl"><FaTiktok /></a>
-          </div>
-      
-          {/* Copyright */}
-          <p className="text-sm text-gray-500">© 2025 Ryzmo. Built with 💚 for a greener future.</p>
-        </div>
-      </footer>
-      
+      <Footer/>
     </main>
   );
 }
+
+export const getServerSideProps = withAuth(async ({ user }) => {
+  return {
+    props: {
+      userId: user.id,
+    },
+  };
+});

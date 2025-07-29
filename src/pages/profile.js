@@ -1,690 +1,647 @@
-// pages/profile.js
-import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
-import { FaUser, FaKey, FaBell, FaCreditCard, FaShoppingBag, FaGift, FaCoins, FaSearch, FaShoppingCart, FaUserCircle, FaCommentDots, FaTimes, FaInstagram, FaTiktok, FaBars } from 'react-icons/fa';
+import { PrismaClient } from '@prisma/client';
+import { FaSearch, FaCommentDots, FaInstagram, FaTiktok, FaBars, FaPhoneAlt, FaHeart, FaUser, FaShoppingBag, FaWallet } from 'react-icons/fa';
+import { withAuth } from '../../middleware/withAuth';
+import { useRouter } from 'next/router';
+import { useState,useEffect } from 'react';
 import Link from 'next/link';
-import { X } from 'lucide-react';
-import { motion, AnimatePresence } from "framer-motion";
+import Navbar from './navbar';
+import Footer from './footer';
 
-export default function Profile() {
-  const [activeTab, setActiveTab] = useState('profile');
-  const [formData, setFormData] = useState({
-    username: 'Silvia',
-    name: '',
-    email: 'farhan.silvia@ryzmo.com',
-    phone: '081234567890',
-    storeName: 'Ryzmo Store',
-    gender: '',
-    birthDate: { day: '', month: '', year: '' },
-    avatar: '/profilesil.png',
-  });
+function ProfilePage({ user }) {
+  const [orderList, setOrderList] = useState([]);
 
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [isNavbarVisible, setIsNavbarVisible] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const searchRef = useRef(null);
 
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loginData, setLoginData] = useState({
-    email: '',
-    password: '',
-  });
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [products, setProducts] = useState([]);
+ 
+  const router = useRouter();
+const [section, setSection] = useState(router.query.section || 'akun');
+ // default tab
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
-  // Handle perubahan input di form profile
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+const [cancelReason, setCancelReason] = useState('');
+const [selectedOrderId, setSelectedOrderId] = useState(null);
+const [showPinDialog, setShowPinDialog] = useState(false);
+const [newPin, setNewPin] = useState('');
+const [pinPassword, setPinPassword] = useState('');
+const [pinError, setPinError] = useState('');
+const [showPayNowDialog, setShowPayNowDialog] = useState(false);
+const [payNowPin, setPayNowPin] = useState('');
+const [payNowError, setPayNowError] = useState('');
+const [selectedPayOrder, setSelectedPayOrder] = useState(null);
+const [walletBalance, setWalletBalance] = useState(0);
+const [isLoading, setIsLoading] = useState(true);
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'Dibayar':
+      return 'bg-green-100 text-green-700';
+    case 'Belum-Dibayar':
+      return 'bg-yellow-100 text-yellow-700';
+    case 'Dibatalkan':
+      return 'bg-red-100 text-red-700';
+    case 'Diproses':
+      return 'bg-blue-100 text-blue-700';
+    case 'Dikirim':
+    case 'Sedang-Dikirim':
+      return 'bg-purple-100 text-purple-700';
+    case 'Telah-Sampai':
+      return 'bg-indigo-100 text-indigo-700';
+    case 'Selesai':
+      return 'bg-gray-100 text-gray-800';
+    case 'Pengembalian-Diterima':
+      return 'bg-orange-100 text-orange-700';
+    case 'Diterima Penjual':
+      return 'bg-pink-100 text-pink-700';
+    case 'Dikirim Ulang':
+      return 'bg-teal-100 text-teal-700';
+    default:
+      return 'bg-gray-100 text-gray-600';
+  }
+};
 
-  // Upload gambar dan preview
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
-  // Handle perubahan input di form login
-  const handleLoginChange = (e) => {
-    const { name, value } = e.target;
-    setLoginData({ ...loginData, [name]: value });
-  };
 
-  // Login dan hilangkan popup
-  const handleLogin = () => {
-    setIsLoggedIn(true); // Langsung berhasil login
-    alert('Berhasil masuk!');
-  };
 
-  const saveChanges = () => {
-    alert('Perubahan berhasil disimpan!');
-  };
 
-  // Cek login saat pertama kali masuk
+
+
   useEffect(() => {
-    if (!isLoggedIn) {
-      // Munculkan popup sign in jika belum login
-      setIsLoggedIn(false);
+    if (router.query.section) {
+      setSection(router.query.section);
     }
-  }, [isLoggedIn]);
+  }, [router.query.section]);
+  
 
-  const [bankAccounts, setBankAccounts] = useState([
-    { id: 1, bankName: 'Bank BCA', accountNumber: '1234 5678 9012', accountHolder: 'Silvia' },
-  ]);
-  const [newBank, setNewBank] = useState({ bankName: '', accountNumber: '', accountHolder: '' });
-
-  const handleChange2 = (e) => {
-    const { name, value } = e.target;
-    setNewBank({ ...newBank, [name]: value });
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/auth/login');
   };
 
-  const addBankAccount = () => {
-    if (newBank.bankName && newBank.accountNumber && newBank.accountHolder) {
-      setBankAccounts([...bankAccounts, { id: bankAccounts.length + 1, ...newBank }]);
-      setNewBank({ bankName: '', accountNumber: '', accountHolder: '' });
-    } else {
-      alert('Mohon isi semua data rekening.');
+  const handleDeleteAccount = async () => {
+    await fetch('/api/user/delete', {
+      method: 'DELETE',
+      body: JSON.stringify({ userId: user.id }),
+    });
+    router.push('/auth/login');
+  };
+
+  useEffect(() => {
+      const fetchProducts = async () => {
+        try {
+          const res = await fetch(`/api/search?search=${search}&category=${category}`);
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Gagal fetch: ${res.status} - ${text}`);
+          }
+    
+          const data = await res.json();
+          setProducts(data.products);
+        } catch (err) {
+          console.error('Error saat fetch data produk:', err.message);
+        }
+      };
+    
+      fetchProducts();
+    }, [search, category]);
+
+    useEffect(() => {
+      const fetchOrders = async () => {
+        try {
+          setIsLoading(true);
+          const res = await fetch(`/api/order?userId=${user.id}`);
+          const data = await res.json();
+      
+          // Urutkan berdasarkan waktu terbaru
+          const sorted = [...(data.orders || [])].sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+          );
+      
+          setOrderList(sorted);
+        } catch (err) {
+          console.error('Gagal ambil pesanan:', err);
+        } finally {
+      setIsLoading(false); // Selesai loading
+    }
+        
+      };
+      
+    
+      if (user?.id) fetchOrders();
+    }, [user]);
+    
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    router.push(`/shop?search=${search}&category=${category}`); // ✅ hasil akhir
+  };
+
+  const handleCancelOrder = async () => {
+    if (!cancelReason || !selectedOrderId) return;
+  
+    try {
+      const res = await fetch('/api/order-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: selectedOrderId,
+          reason: cancelReason,
+        }),
+      });
+      
+      
+  
+      if (res.ok) {
+        alert('Pesanan berhasil dibatalkan.');
+        setShowCancelDialog(false);
+        setCancelReason('');
+        setSelectedOrderId(null);
+        // Refresh list pesanan
+        const updated = await fetch(`/api/order?userId=${user.id}`);
+        const data = await updated.json();
+        setOrderList(data.orders || []);
+        // Urutkan: Belum-Dibayar dan Dibayar di atas, Dibatalkan di bawah
+
+
+      } else {
+        alert('Gagal membatalkan pesanan.');
+      }
+    } catch (err) {
+      console.error('❌ Gagal cancel order:', err);
     }
   };
 
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
+  const sortedOrders = [...orderList].sort((a, b) => {
+    const statusOrder = { 'Belum-Dibayar': 1, 'Dibayar': 2, 'Dibatalkan': 3 };
+    return statusOrder[a.status] - statusOrder[b.status];
   });
-  const [message, setMessage] = useState('');
 
-  const handleChange3 = (e) => {
-    const { name, value } = e.target;
-    setPasswordData({ ...passwordData, [name]: value });
-  };
-
-  const handleSubmit = () => {
-    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-      setMessage('Mohon isi semua kolom.');
-      return;
+  const handleSetPin = async () => {
+    try {
+      const res = await fetch('/api/user/set-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, pin: newPin }),
+      });
+  
+      if (res.ok) {
+        alert('PIN berhasil diperbarui.');
+        setShowPinDialog(false);
+        setNewPin('');
+      } else {
+        alert('Gagal memperbarui PIN.');
+      }
+    } catch (err) {
+      console.error('❌ Gagal setel PIN:', err);
     }
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMessage('Konfirmasi password baru tidak cocok.');
-      return;
-    }
-    setMessage('Password berhasil diperbarui!');
-    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
-  const [notifications, setNotifications] = useState({
-    email: true,
-    sms: false,
-    push: true,
-    orderUpdates: true,
-    promotions: false,
-  });
-
-  const handleToggle = (key) => {
-    setNotifications({ ...notifications, [key]: !notifications[key] });
-  };
-
-  const saveSettings = () => {
-    alert('Pengaturan notifikasi berhasil disimpan!');
-  };
-
-  const [orders, setOrders] = useState([
-    { id: 1, product: 'Regular Fit Linen Trousers', status: 'Diproses', date: '2025-03-05', total: 'Rp175.000' },
-    { id: 2, product: 'Sequined Tulle Balloon Dress', status: 'Dikirim', date: '2025-03-02', total: 'Rp200.000' },
-    { id: 3, product: 'Slim Fit Cotton Trousers', status: 'Selesai', date: '2025-02-28', total: 'Rp180.000' },
-  ]);
-
-  const [vouchers, setVouchers] = useState([
-    { id: 1, code: 'DISKON50', description: 'Diskon 50% untuk pembelian pertama', expiry: '2025-06-30', status: 'Aktif' },
-    { id: 2, code: 'GRATISONGKIR', description: 'Gratis ongkir untuk pembelian di atas Rp100.000', expiry: '2025-05-15', status: 'Aktif' },
-    { id: 3, code: 'FLASHSALE25', description: 'Diskon 25% khusus produk flash sale', expiry: '2025-03-10', status: 'Kadaluarsa' },
-  ]);
-
-  const [coins, setCoins] = useState(1500);
-  const [transactions, setTransactions] = useState([
-    { id: 1, description: 'Donasi pakaian', date: '2025-01-15', amount: 500 },
-    { id: 2, description: 'Pembelian produk', date: '2025-02-10', amount: 700 },
-    { id: 3, description: 'Pembelian produk', date: '2025-03-01', amount: 300 },
-  ]);
-
+  useEffect(() => {
+    const fetchWallet = async () => {
+      try {
+        const res = await fetch(`/api/wallet/${user.id}`);
+        const data = await res.json();
+        setWalletBalance(data.walletBalance || 0);
+      } catch (err) {
+        console.error('Gagal ambil saldo wallet:', err);
+      }
+    };
+    if (user?.id) fetchWallet();
+  }, [user]);
+  
+  
+  
 
   return (
-    <main className="bg-gray-100 min-h-screen pt-20 relative">
-      {/* Navbar */}
-      <nav
-        className="fixed top-4 left-0 w-full z-50 flex justify-center transition-all duration-500 ease-in-out
-        "
-      >
-        <div className="backdrop-blur-md bg-white/40 rounded-full shadow-lg px-6 md:px-16 py-3 flex items-center justify-between w-[90%] max-w-8xl border border-white/20">
-          {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <Image src="/logo.png" alt="Logo" width={120} height={120} className="filter invert" />
-            <div className="text-md sm:text-sm md:text-xl lg:text-2xl text-green-800 font-bold">
-              Profile
-            </div>
-          </div>
+    <main className="bg-white">
+      <Navbar/>
+      <div className="w-full md:max-w-7xl mx-auto flex flex-col md:flex-row gap-6 px-0">
 
-          <div className="flex items-center justify-end w-full space-x-4">
-            {/* Menu Utama - Desktop */}
-            <ul className="hidden md:flex space-x-6 text-gray-800 transition-all duration-300 ease-in-out">
-              <li><Link href="/" className="hover:text-yellow-500 transition">Home</Link></li>
-              <li><Link href="/marketplace" className="hover:text-yellow-500 transition">Produk</Link></li>
-              <li><a href="/#siklus" className="hover:text-yellow-500 transition">Siklus Hidup</a></li>
-              <li><a href="/#campaign" className="hover:text-yellow-500 transition">Campaign</a></li>
-            </ul>
 
-            {/* Search & Icons */}
-            <div className="flex items-center space-x-4 relative">
-      {/* Search Input untuk Laptop */}
-      <div
-        className={`hidden md:flex items-center transition-all duration-300 ease-in-out overflow-hidden ${isSearchVisible ? "w-48 opacity-100" : "w-0 opacity-0"}`}
-      >
-        <input
-          type="text"
-          placeholder="Cari produk..."
-          className="px-4 py-2 rounded-full focus:outline-none text-gray-700 w-full"
-        />
-        <FaTimes className="text-gray-500 hover:text-red-500 cursor-pointer ml-2" onClick={() => setIsSearchVisible(false)} />
-      </div>
       
-      <AnimatePresence>
-  {isSearchVisible && (
-    <motion.div
-      initial={{ opacity: 0, y: 0 }} // Awalnya transparan & naik 50px
-      animate={{ opacity: 1, y: 0 }}   // Muncul dengan opacity 1 & posisi normal
-      exit={{ opacity: 0, y: 0 }}     // Menghilang dengan opacity 0 & naik ke atas lagi
-      transition={{ duration: 0.3, ease: "easeInOut" }} // Durasi smooth 0.3s
-      className="fixed right-0 w-full bg-white flex items-center px-4 rounded-full py-3 z-50 md:hidden shadow-md border-b border-gray-300"
-    >
-      <input
-        type="text"
-        placeholder="Cari produk..."
-        className="flex-1 px-4 py-2 rounded-full focus:outline-none text-gray-700 border border-gray-300"
-      />
-      <FaTimes 
-        className="text-gray-500 hover:text-red-500 cursor-pointer ml-3 text-2xl" 
-        onClick={() => setIsSearchVisible(false)} // Menutup dengan transisi
-      />
-    </motion.div>
-  )}
-</AnimatePresence>
+      {/* Sidebar */}
+      <aside
+  className="w-full md:w-64 text-black bg-white p-6 border-b md:border-b-0 md:border-r shadow-sm md:sticky md:top-[100px] md:max-h-[calc(100vh-100px)] md:overflow-y-auto"
+>
 
-      {/* Search Icon */}
-      <FaSearch
-        className="text-black md:text-gray-600 text-xl cursor-pointer hover:text-yellow-500 transition"
-        onClick={() => setIsSearchVisible(!isSearchVisible)}
-      />
 
-      {/* Icon Navbar */}
-      <div className="hidden md:flex space-x-4 items-center text-gray-600">
-        <Link href="/cart"><FaShoppingCart className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-        <Link href="/chat"><FaCommentDots className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-        <Link href="/profile"><FaUserCircle className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
+
+  <h2 className="text-xl font-bold mb-6">Dashboard Profil</h2>
+  <nav className="space-y-4 text-sm">
+    <button onClick={() => setSection('akun')} className={`block text-left w-full ${section === 'akun' ? 'text-blue-600 font-semibold' : 'text-gray-700'}`}>
+      Informasi Akun
+    </button>
+    <button onClick={() => setSection('pesanan')} className={`block text-left w-full ${section === 'pesanan' ? 'text-blue-600 font-semibold' : 'text-gray-700'}`}>
+      Riwayat Pesanan
+    </button>
+    <button onClick={() => setSection('keamanan')} className={`block text-left w-full ${section === 'keamanan' ? 'text-blue-600 font-semibold' : 'text-gray-700'}`}>
+      Keamanan
+    </button>
+    <button onClick={() => setSection('bantuan')} className={`block text-left w-full ${section === 'bantuan' ? 'text-blue-600 font-semibold' : 'text-gray-700'}`}>
+      Pusat Bantuan
+    </button>
+    <hr className="my-4" />
+    <button onClick={handleLogout} className="block text-left text-red-600 w-full">Logout</button>
+    <button onClick={() => setShowConfirmDelete(true)} className="block text-left text-red-500 w-full text-sm hover:underline mt-2">
+      Hapus Akun
+    </button>
+  </nav>
+</aside>
+
+
+      {/* Content */}
+      <main className="flex-1 p-8 bg-white">
+      {section === 'akun' && (
+  <section className="w-full px-4 sm:px-6 md:px-8">
+
+
+    <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-800 text-center md:text-left">👤 Informasi Akun</h2>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-sm">
+      <div>
+        <p className="text-gray-500 mb-1">Nama Lengkap</p>
+        <div className="border rounded-md px-4 py-2 bg-gray-50 text-gray-800 font-medium">
+          {user.name || '-'}
+        </div>
       </div>
 
-      {/* Hamburger Menu untuk Mobile */}
-      <div className="md:hidden">
-        <FaBars className="text-2xl text-black cursor-pointer hover:text-yellow-500 transition" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
+      <div>
+        <p className="text-gray-500 mb-1">Email</p>
+        <div className="border rounded-md px-4 py-2 bg-gray-100 text-gray-800 font-medium">
+          {user.email || '-'}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-gray-500 mb-1">Nomor Telepon</p>
+        <div className="border rounded-md px-4 py-2 bg-white text-gray-800 font-medium">
+          {user.phone || '-'}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-gray-500 mb-1">Alamat Pengiriman</p>
+        <div className="border rounded-md px-4 py-2 bg-white text-gray-800 font-medium">
+          {user.address || '-'}
+        </div>
       </div>
     </div>
-          </div>
-        </div>
 
-        {/* Sidebar Menu */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 100, damping: 20 }}
-              className="fixed top-0 right-0 w-50 h-screen backdrop-blur-md bg-white/30 shadow-lg flex flex-col items-end p-6 text-xl text-gray-800 z-40 rounded-l-3xl"
+    <div className="mt-8 flex justify-center md:justify-start">
+      <Link href="/profile/edit">
+        <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm shadow-md">
+          Edit Profil
+        </button>
+      </Link>
+    </div>
+  </section>
+)}
+
+{section === 'pesanan' && (
+  <section className="text-black">
+    <h2 className="text-xl font-bold mb-4">Riwayat Pesanan</h2>
+
+    {isLoading ? (
+      <p className="text-sm text-gray-600 animate-pulse">Memuat data pesanan...</p>
+    ) : orderList.length === 0 ? (
+      <p className="text-sm text-gray-600">
+        Belum ada pesanan.{' '}
+        <Link href="/produk" className="text-blue-600 hover:underline">
+          Belanja sekarang
+        </Link>.
+      </p>
+    ) : (
+      <div className="grid md:grid-cols-2 gap-6">
+        {sortedOrders.map((order) => (
+  <div
+    key={order.id}
+    className="border border-gray-200 rounded-lg p-5 shadow hover:shadow-lg transition cursor-pointer"
+    onClick={() => router.push(`/pesanan/${order.id}`)}
+  >
+    <div className="flex justify-between items-center mb-1">
+      <p className="text-sm text-gray-700">
+        Waktu: {new Date(order.createdAt).toLocaleString('id-ID')}
+      </p>
+      <span className={`text-xs font-semibold px-2 py-1 rounded ${getStatusColor(order.status)}`}>
+  {order.status.toUpperCase()}
+</span>
+
+    </div>
+
+    <p className="text-sm text-gray-700 mb-2">
+      Total: <strong>Rp{order.total.toLocaleString('id-ID')}</strong>
+    </p>
+
+    {/* ✅ Tambahin kondisi disini */}
+    {order.status === 'Pengembalian-Diterima' && (
+      <p className="text-xs text-red-600 font-medium mb-2">
+        Silakan kirimkan produk ke penjual.
+      </p>
+    )}
+
+    {/* Produk singkat (satu atau beberapa) */}
+    {order.items && order.items.length > 0 && (
+      <div className="space-y-2 mt-2">
+        {order.items.map((item) => (
+          <div key={item.id} className="flex items-center gap-3">
+            <img
+              src={
+                typeof item.product.imageUrls[0] === 'string'
+                  ? item.product.imageUrls[0]
+                  : item.product.imageUrls[0]?.url
+              }
+              alt={item.product.name}
+              className="w-16 h-16 object-cover rounded"
+            />
+            <div className="text-sm">
+              <p className="font-medium">{item.product.name}</p>
+              {item.color && (
+                  <p className="text-gray-500 text-xs">Model/Warna: {item.color}</p>
+                )}
+                {item.size && (
+                  <p className="text-gray-500 text-xs">Model/Ukuran: {item.size}</p>
+                )}
+
+              <p className="text-xs">Jumlah: {item.quantity}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+))}
+
+
+      </div>
+    )}
+  </section>
+)}
+
+
+{section === 'keamanan' && (
+  <section className="w-full max-w-3xl px-4 text-black sm:px-6">
+    <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center sm:text-left">Keamanan & Login</h2>
+
+    <div className="space-y-4 text-sm text-gray-700 mb-12">
+      <div className="border px-4 py-3 rounded-md bg-gray-50">
+        <p className="font-medium">Email yang terhubung</p>
+        <p className="text-gray-500 break-all">{user.email}</p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <div>
+          <p className="font-medium">Ganti Password</p>
+          <p className="text-gray-500">Pastikan password baru minimal 8 karakter.</p>
+        </div>
+        <Link
+          href="/auth/change-password"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm text-center"
+        >
+          Ubah Password
+        </Link>
+      </div>
+    </div>
+
+    <div className="border px-4 py-3 rounded-md bg-gray-50">
+      <p className="font-medium mb-1">PIN LiiyPay</p>
+      <p className="text-gray-500">PIN digunakan untuk keamanan saat transaksi.</p>
+      <button
+        onClick={() => setShowPinDialog(true)}
+        className="mt-2 bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
+      >
+        Setel / Ganti PIN
+      </button>
+    </div>
+
+    {/* PIN Dialog */}
+    {showPinDialog && (
+      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg w-full max-w-sm mx-4 shadow-md space-y-4">
+          <h3 className="text-lg font-semibold text-center">Ganti PIN LiiyPay</h3>
+          <p className="text-sm text-gray-700 text-center">Masukkan password akun dan PIN baru.</p>
+
+          <input
+            type="password"
+            placeholder="Password Akun"
+            className="w-full border px-3 py-2 rounded"
+            value={pinPassword}
+            onChange={(e) => setPinPassword(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="PIN Baru (6 digit)"
+            maxLength={6}
+            pattern="\d*"
+            inputMode="numeric"
+            className="w-full border px-3 py-2 rounded"
+            value={newPin}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (/^\d*$/.test(val)) setNewPin(val);
+            }}
+          />
+
+          {pinError && <p className="text-sm text-red-600">{pinError}</p>}
+
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowPinDialog(false)} className="text-sm text-gray-600 hover:underline">
+              Batal
+            </button>
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
+              onClick={async () => {
+                setPinError('');
+                if (!pinPassword || !newPin || newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+                  setPinError('Password dan PIN wajib diisi, dan PIN harus 6 digit angka.');
+                  return;
+                }
+
+                try {
+                  const res = await fetch('/api/user/change-pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pinPassword, newPin }),
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    alert('PIN berhasil diubah!');
+                    setShowPinDialog(false);
+                    setPinPassword('');
+                    setNewPin('');
+                  } else {
+                    setPinError(data.message || 'Gagal mengubah PIN');
+                  }
+                } catch (err) {
+                  setPinError('Gagal terhubung ke server.');
+                  console.error('Error ganti PIN:', err);
+                }
+              }}
             >
-              <div className="flex mb-6 border-b border-white/20 w-full justify-end">
-                <button onClick={() => setIsMobileMenuOpen(false)} className="text-teal-800">
-                  <X size={28} />
-                </button>
-              </div>
-              <Link href="/" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
-              <Link href="/marketplace" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Produk</Link>
-              <a href="#siklus" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Siklus Hidup</a>
-              <a href="#campaign" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Campaign</a>
-              <div className="flex space-x-6">
-                <Link href="/cart" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaShoppingCart className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-                <Link href="/chat" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaCommentDots className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-                <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaUserCircle className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
-
-      {/* Popup Sign In */}
-      {!isLoggedIn && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-60 flex justify-center items-center z-50 backdrop-blur">
-          <div className="bg-white rounded-3xl p-6 w-[90%] max-w-md shadow-lg transform transition-all duration-300 ease-in-out scale-105">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800 text-center">Sign In</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-600">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={loginData.email}
-                  onChange={handleLoginChange}
-                  className="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:border-yellow-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-600">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={loginData.password}
-                  onChange={handleLoginChange}
-                  className="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:border-yellow-400"
-                />
-              </div>
-            </div>
-            <div className="text-center mt-6">
-              <button
-                onClick={handleLogin}
-                className="bg-yellow-400 text-gray-800 px-8 py-3 rounded-full shadow-md hover:bg-yellow-500 hover:scale-105 transform transition duration-300"
-              >
-                Login
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="container mx-auto px-6 lg:px-16 py-10">
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Sidebar Navigasi */}
-          <div className="md:w-1/4 bg-white shadow-lg rounded-3xl p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="relative w-16 h-16 rounded-full overflow-hidden border-4 border-yellow-400">
-                <Image
-                  src={selectedImage || formData.avatar}
-                  alt={formData.username}
-                  layout="fill"
-                  objectFit="cover"
-                />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-800">
-                  {formData.username}
-                </h3>
-                <button className="text-sm text-yellow-500 hover:underline">
-                  Ubah Profil
-                </button>
-              </div>
-            </div>
-            <ul className="space-y-4">
-            {[
-              { key: 'profile', label: 'Profil', icon: FaUser },
-              { key: 'bank', label: 'Bank & Kartu', icon: FaCreditCard },
-              { key: 'password', label: 'Ubah Password', icon: FaKey },
-              { key: 'notifications', label: 'Pengaturan Notifikasi', icon: FaBell },
-              { key: 'orders', label: 'Pesanan Saya', icon: FaShoppingBag },
-              { key: 'vouchers', label: 'Voucher Saya', icon: FaGift },
-              { key: 'coins', label: 'Koin Saya', icon: FaCoins },
-            ].map(({ key, label, icon: Icon }) => (
-              <li key={key} className={`cursor-pointer flex items-center space-x-2 p-2 rounded-lg transition ${activeTab === key ? 'text-yellow-500 font-semibold bg-gray-200' : 'text-gray-600 hover:text-yellow-500'}`} onClick={() => setActiveTab(key)}>
-                <Icon /> <span>{label}</span>
-              </li>
-            ))}
-          </ul>
-          </div>
-
-          {/* Form Profil Akun */}
-          <div className="md:w-3/4 bg-white shadow-lg rounded-3xl p-6">
-          
-          {activeTab === 'profile' && (
-            <div>
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Profil Saya</h2>
-              <div className="space-y-4">
-                  <div>
-                    <label className="block text-gray-600">Username</label>
-                    <input
-                      type="text"
-                      value={formData.username}
-                      className="w-full px-4 py-2 rounded-full border border-gray-300 text-black bg-gray-100"
-                      disabled
-                    />
-                  </div>
-                
-                  <div>
-                    <label className="block text-gray-600">Nama</label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:border-yellow-400"
-                    />
-                  </div>
-                
-                  <div>
-                    <label className="block text-gray-600">Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      className="w-full px-4 py-2 rounded-full border border-gray-300 text-black bg-gray-100"
-                      disabled
-                    />
-                  </div>
-                
-                  <div>
-                    <label className="block text-gray-600">Pilih Gambar</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="w-full px-4 py-2 rounded-full border text-gray-500 border-gray-300 focus:outline-none focus:border-yellow-400"
-                    />
-                    <small className="text-gray-500">
-                      Ukuran gambar: maks. 1 MB | Format: JPEG, PNG
-                    </small>
-                  </div>
-              </div>
-                
-              <div className="text-right mt-6">
-                <button
-                  onClick={saveChanges}
-                  className="bg-yellow-400 text-gray-800 px-6 py-3 rounded-full shadow-md hover:bg-yellow-500 hover:scale-105 transform transition duration-300"
-                >
-                  Simpan
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'bank' && <div className="bg-white shadow-lg rounded-3xl p-6 mx-auto">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Bank & Kartu</h2>
-
-            <div className="space-y-4">
-              {bankAccounts.map((bank) => (
-                <div key={bank.id} className="p-4 border border-gray-300 rounded-lg">
-                  <p className="font-bold text-gray-800">{bank.bankName}</p>
-                  <p className="text-gray-600">{bank.accountNumber}</p>
-                  <p className="text-gray-600">Pemilik: {bank.accountHolder}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6">
-              <h3 className="text-lg font-bold mb-2 text-gray-800">Tambah Rekening</h3>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  name="bankName"
-                  placeholder="Nama Bank"
-                  value={newBank.bankName}
-                  onChange={handleChange2}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                />
-                <input
-                  type="text"
-                  name="accountNumber"
-                  placeholder="Nomor Rekening"
-                  value={newBank.accountNumber}
-                  onChange={handleChange2}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                />
-                <input
-                  type="text"
-                  name="accountHolder"
-                  placeholder="Nama Pemilik"
-                  value={newBank.accountHolder}
-                  onChange={handleChange2}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                />
-                <button
-                  onClick={addBankAccount}
-                  className="bg-yellow-400 text-gray-800 px-6 py-3 rounded-lg shadow-md hover:bg-yellow-500 transition w-full"
-                >
-                  Tambah Rekening
-                </button>
-              </div>
-            </div>
-          </div>}
-
-          {activeTab === 'password' && <div className="bg-white shadow-lg rounded-3xl p-6 mx-auto">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Ubah Password</h2>
-
-            {message && <p className="text-center text-red-500 mb-4">{message}</p>}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-600">Password Saat Ini</label>
-                <input
-                  type="password"
-                  name="currentPassword"
-                  value={passwordData.currentPassword}
-                  onChange={handleChange3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-600">Password Baru</label>
-                <input
-                  type="password"
-                  name="newPassword"
-                  value={passwordData.newPassword}
-                  onChange={handleChange3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-600">Konfirmasi Password Baru</label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={passwordData.confirmPassword}
-                  onChange={handleChange3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                />
-              </div>
-            </div>
-
-            <div className="text-right mt-6">
-              <button
-                onClick={handleSubmit}
-                className="bg-yellow-400 text-gray-800 px-6 py-3 rounded-lg shadow-md hover:bg-yellow-500 transition w-full"
-              >
-                Simpan Password
-              </button>
-            </div>
-          </div>}
-
-          {activeTab === 'notifications' && <div className="bg-white shadow-lg rounded-3xl p-6 mx-auto">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Pengaturan Notifikasi</h2>
-            <p className="text-gray-600 mb-6">Pilih bagaimana Anda ingin menerima notifikasi.</p>
-
-            <div className="space-y-4">
-              {[
-                { key: 'email', label: 'Notifikasi melalui Email' },
-                { key: 'sms', label: 'Notifikasi melalui SMS' },
-                { key: 'push', label: 'Notifikasi melalui Aplikasi' },
-                { key: 'orderUpdates', label: 'Update Status Pesanan' },
-                { key: 'promotions', label: 'Promo & Penawaran Khusus' },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center justify-between p-4 border border-gray-300 rounded-lg">
-                  <span className="text-gray-800">{label}</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications[key]}
-                      onChange={() => handleToggle(key)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-yellow-400 dark:peer-focus:ring-yellow-500 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-400"></div>
-                  </label>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-right mt-6">
-              <button
-                onClick={saveSettings}
-                className="bg-yellow-400 text-gray-800 px-6 py-3 rounded-lg shadow-md hover:bg-yellow-500 transition w-full"
-              >
-                Simpan Pengaturan
-              </button>
-            </div>
-          </div>}
-
-          {activeTab === 'orders' && <div className="bg-white shadow-lg rounded-3xl p-6 mx-auto">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Pesanan Saya</h2>
-            <p className="text-gray-600 mb-6">Lihat status pesanan Anda.</p>
-
-            <div className="space-y-4">
-              {orders.map((order) => (
-                <div key={order.id} className="p-4 border border-gray-300 rounded-lg flex justify-between items-center">
-                  <div>
-                    <p className="font-bold text-gray-800">{order.product}</p>
-                    <p className="text-gray-600 text-sm">Tanggal: {order.date}</p>
-                    <p className="text-gray-600 text-sm">Total: {order.total}</p>
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      order.status === 'Diproses' ? 'bg-yellow-400 text-gray-800' :
-                      order.status === 'Dikirim' ? 'bg-blue-400 text-white' :
-                      'bg-green-500 text-white'
-                    }`}
-                  >
-                    {order.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>}
-
-          {activeTab === 'vouchers' && <div className="bg-white shadow-lg rounded-3xl p-6 mx-auto">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Voucher Saya</h2>
-            <p className="text-gray-600 mb-6">Lihat daftar voucher yang bisa digunakan.</p>
-
-            <div className="space-y-4">
-              {vouchers.map((voucher) => (
-                <div key={voucher.id} className="p-4 border border-gray-300 rounded-lg flex justify-between items-center">
-                  <div>
-                    <p className="font-bold text-gray-800">{voucher.code}</p>
-                    <p className="text-gray-600 text-sm">{voucher.description}</p>
-                    <p className="text-gray-600 text-sm">Berlaku hingga: {voucher.expiry}</p>
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      voucher.status === 'Aktif' ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'
-                    }`}
-                  >
-                    {voucher.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>}
-
-          {activeTab === 'coins' && <div className="bg-white shadow-lg rounded-3xl p-6 mx-auto">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center gap-2">
-          <FaCoins className="text-yellow-500" /> Koin Saya
-        </h2>
-        <p className="text-gray-600 mb-6">Total Koin Anda: <span className="font-bold text-yellow-500">{coins} Koin</span></p>
-
-        <h3 className="text-lg font-bold text-gray-800 mb-3">Riwayat Koin</h3>
-        <div className="space-y-4">
-          {transactions.map((transaction) => (
-            <div key={transaction.id} className="p-4 border border-gray-300 rounded-lg flex justify-between items-center">
-              <div>
-                <p className="font-bold text-gray-800">{transaction.description}</p>
-                <p className="text-gray-600 text-sm">{transaction.date}</p>
-              </div>
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-400 text-gray-800">
-                +{transaction.amount}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>}
-
+              Simpan PIN
+            </button>
           </div>
         </div>
       </div>
-      
-      {/* Footer Informasi Lengkap */}
-      <footer className="bg-gray-900 text-gray-400 py-16">
-        <div className="container mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 px-6 lg:px-16">
-          
-          {/* Bergabung dengan Gerakan Kami */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4">Bergabung dengan Gerakan Kami</h3>
-            <p className="text-gray-500 mb-4 text-justify">
-              Dukung gerakan fashion berkelanjutan dan menjadi bagian dari perubahan positif untuk lingkungan. Ayo berkontribusi dalam mengurangi limbah fashion!
-            </p>
-            <ul className="space-y-2">
-              <li><a href="/swap" className="hover:text-yellow-500 transition duration-300">Tukar Pakaian</a></li>
-              <li><a href="/repair" className="hover:text-yellow-500 transition duration-300">Perbaiki Pakaian</a></li>
-              <li><a href="/infografis" className="hover:text-yellow-500 transition duration-300">Baca Artikel Keberlanjutan</a></li>
-            </ul>
+    )}
+  </section>
+)}
+
+
+
+        {section === 'bantuan' && (
+  <section className="text-black">
+    <h2 className="text-xl font-bold mb-4">Pusat Bantuan</h2>
+    <Link href="/bantuan" className="text-sm text-blue-600 hover:underline block">
+      Kunjungi halaman Bantuan & FAQ →
+    </Link>
+    <p className="text-sm mt-1">Atau hubungi Customer Service kami untuk bantuan langsung.</p>
+  </section>
+)}
+
+
+        {showConfirmDelete && (
+          <div className="mt-8 bg-red-50 border border-red-300 p-4 rounded">
+            <p className="text-sm text-red-700 mb-2">Apakah kamu yakin ingin menghapus akun? Tindakan ini tidak bisa dibatalkan.</p>
+            <div className="flex gap-4">
+              <button
+                onClick={handleDeleteAccount}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+              >
+                Ya, Hapus Akun
+              </button>
+              <button
+                onClick={() => setShowConfirmDelete(false)}
+                className="text-sm text-gray-600 hover:underline"
+              >
+                Batal
+              </button>
+            </div>
           </div>
-      
-          {/* Sosial Media */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4">Ikuti Kami</h3>
-            <ul className="flex space-x-6">
-              <li>
-                <a href="#" className="hover:text-yellow-500 transition duration-300">
-                  <FaInstagram className="text-2xl" />
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-yellow-500 transition duration-300">
-                  <FaTiktok className="text-2xl" />
-                </a>
-              </li>
-            </ul>
-          </div>
-      
-          {/* Informasi Legal */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4">Informasi Legal</h3>
-            <ul>
-              <li><a href="/terms" className="hover:text-yellow-500 transition duration-300">Syarat & Ketentuan</a></li>
-              <li><a href="/privacy" className="hover:text-yellow-500 transition duration-300">Kebijakan Privasi</a></li>
-              <li><span className="text-gray-600 text-sm">© 2025 Ryzmo</span></li>
-            </ul>
-          </div>
-      
-          {/* Tentang Kami */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4">Tentang Kami</h3>
-            <p className="text-gray-500 mb-4 text-justify">
-              Ryzmo adalah platform yang bertujuan menciptakan perubahan dalam industri fashion, mengurangi limbah, dan mendorong gaya hidup ramah lingkungan. Bergabunglah dalam gerakan untuk masa depan fashion yang lebih hijau!
-            </p>
-            <a href="/about" className="text-yellow-500 hover:text-white transition duration-300 font-semibold">Pelajari Lebih Lanjut →</a>
-          </div>
-      
-        </div>
-      
-        {/* Footer Bottom */}
-        <div className="mt-12 text-center text-gray-500 text-sm">
-          <p>Built with 💚 by Ryzmo. All Rights Reserved.</p>
-        </div>
-      </footer>
+        )}
+      </main>
+    </div>
+    {showCancelDialog && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg max-w-sm w-full space-y-4 shadow-lg">
+      <h3 className="text-lg font-semibold text-red-600">Batalkan Pesanan?</h3>
+      <p className="text-sm text-gray-700">Kenapa kamu ingin membatalkan pesanan ini?</p>
+
+      <select
+        className="w-full border p-2 rounded text-sm"
+        value={cancelReason}
+        onChange={(e) => setCancelReason(e.target.value)}
+      >
+        <option value="">-- Pilih alasan --</option>
+        <option value="Ganti ukuran">Ganti ukuran</option>
+        <option value="Ganti produk">Ganti produk</option>
+        <option value="Pesanan tidak sengaja">Pesanan tidak sengaja</option>
+        <option value="Ingin batalkan saja">Ingin batalkan saja</option>
+      </select>
+
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowCancelDialog(false)}
+          className="text-sm text-gray-600 hover:underline"
+        >
+          Batal
+        </button>
+        <button
+          onClick={handleCancelOrder}
+          className="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700"
+          disabled={!cancelReason}
+        >
+          Konfirmasi
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showPayNowDialog && selectedPayOrder && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm space-y-4">
+      <h3 className="text-lg font-semibold text-center">Masukkan PIN LiiyPay</h3>
+      <input
+        type="password"
+        maxLength={6}
+        className="border p-2 w-full rounded text-center tracking-widest"
+        placeholder="••••••"
+        value={payNowPin}
+        onChange={(e) => setPayNowPin(e.target.value)}
+      />
+      {payNowError && <p className="text-sm text-red-600">{payNowError}</p>}
+      <div className="flex justify-between gap-2">
+        <button
+          onClick={() => setShowPayNowDialog(false)}
+          className="w-full text-sm text-gray-600 hover:underline"
+        >
+          Batal
+        </button>
+        <button
+          onClick={async () => {
+            try {
+              setPayNowError('');
+              const verify = await fetch('/api/wallet/verify-pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, pin: payNowPin }),
+              });
+              const verifRes = await verify.json();
+
+              if (!verify.ok) return setPayNowError(verifRes.message || 'PIN salah');
+
+              if (walletBalance < selectedPayOrder.total) {
+                return setPayNowError('Saldo tidak cukup.');
+              }
+
+              const res = await fetch('/api/order/pay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: selectedPayOrder.id, userId: user.id }),
+              });
+
+              const result = await res.json();
+              if (res.ok) {
+                router.push(`/invoice?orderId=${selectedPayOrder.id}`);
+              } else {
+                setPayNowError(result.message || 'Gagal melakukan pembayaran');
+              }
+            } catch (err) {
+              console.error(err);
+              setPayNowError('Terjadi kesalahan saat memproses');
+            }
+          }}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+        >
+          Konfirmasi Bayar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+    <Footer/>
     </main>
+    
   );
 }
+
+export const getServerSideProps = withAuth(async ({ user }) => {
+  const prisma = new PrismaClient();
+  const fullUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      address: true,
+    },
+  });
+
+  return { props: { user: fullUser } };
+});
+
+export default ProfilePage;

@@ -1,313 +1,583 @@
-import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/router';
-import Image from 'next/image';
-import { FaSearch, FaShoppingCart, FaUserCircle, FaCommentDots, FaTimes, FaInstagram, FaTiktok, FaBars } from 'react-icons/fa';
-import Link from 'next/link';
-import { X } from 'lucide-react';
-import { motion, AnimatePresence } from "framer-motion";
+// pages/checkout.js
+import { useState, useEffect } from 'react';
+import { withAuth } from '../../middleware/withAuth';
+import { getProvinsiList, getKotaList } from '../../lib/daftarWilayah';
+import LoadingBar from './LoadingBar';
 
-const CheckoutPage = () => {
-  const router = useRouter();
-  const { productId, quantity, size } = router.query;
-  const [cartItems, setCartItems] = useState([]);
-  const [address, setAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [isOrderPlaced, setIsOrderPlaced] = useState(false);
-  const [showPopup, setShowPopup] = useState(false); // State untuk mengatur pop-up
-
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
-    const [isNavbarVisible, setIsNavbarVisible] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const searchRef = useRef(null);
-
-  useEffect(() => {
-    // Ambil data produk berdasarkan ID produk (atau dari keranjang jika sudah ada)
-    const storedCartItems = JSON.parse(localStorage.getItem('cart')) || [];
-    setCartItems(storedCartItems);
-
-    if (productId) {
-      const fetchedProduct = storedCartItems.find((item) => item.id === Number(productId));
-      if (fetchedProduct) {
-        // Tambahkan produk ke cartItems jika belum ada
-        setCartItems((prevItems) => {
-          const itemIndex = prevItems.findIndex((item) => item.id === fetchedProduct.id);
-          if (itemIndex === -1) {
-            return [...prevItems, { ...fetchedProduct, quantity: Number(quantity), size: size || fetchedProduct.sizes[0] }];
-          }
-          return prevItems;
-        });
-      }
-    }
-  }, [productId, quantity, size]);
-
-  const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
-  };
-
-  const handlePlaceOrder = () => {
-    // Logika untuk menempatkan order
-    setIsOrderPlaced(true);
-    // Tampilkan pop-up
-    setShowPopup(true);
+function generateInvoiceNumber() {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() 0-indexed
+    const day = String(date.getDate()).padStart(2, '0');
+    // Menghasilkan 5 karakter random alphanumeric
+    const randomPart = Math.random().toString(36).substring(2, 7).toUpperCase();
     
-    // Simulasi pengiriman data ke server atau API untuk proses checkout
-    setTimeout(() => {
-      // Reset setelah order ditempatkan
-      setIsOrderPlaced(false);
-      localStorage.removeItem('cart'); // Mengosongkan keranjang setelah checkout
-    }, 2000);
-  };
+    return `INV-${year}${month}${day}-${randomPart}`;
+}
 
-  return (
-    <main className="bg-gray-100 min-h-screen pt-10">
-      {/* Navbar */}
-      <nav
-        className="fixed top-4 left-0 w-full z-50 flex justify-center transition-all duration-500 ease-in-out
-        "
-      >
-        <div className="backdrop-blur-md bg-white/40 rounded-full shadow-lg px-6 md:px-16 py-3 flex items-center justify-between w-[90%] max-w-8xl border border-white/20">
-          {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <Image src="/logo.png" alt="Logo" width={120} height={120} className="filter invert" />
-            <div className="text-md sm:text-sm md:text-xl lg:text-2xl text-green-800 font-bold">
-              Checkout
-            </div>
-          </div>
 
-          <div className="flex items-center justify-end w-full space-x-4">
-            {/* Menu Utama - Desktop */}
-            <ul className="hidden md:flex space-x-6 text-gray-800 transition-all duration-300 ease-in-out">
-              <li><Link href="/" className="hover:text-yellow-500 transition">Home</Link></li>
-              <li><Link href="/marketplace" className="hover:text-yellow-500 transition">Produk</Link></li>
-              <li><a href="/#siklus" className="hover:text-yellow-500 transition">Siklus Hidup</a></li>
-              <li><a href="/#campaign" className="hover:text-yellow-500 transition">Campaign</a></li>
-            </ul>
+export default function CheckoutPage({ userId }) {
+  const [cartItems, setCartItems] = useState([]);
+  const [alamat, setAlamat] = useState('');
+  const [namaPenerima, setNamaPenerima] = useState('');
+  const [nomorTelepon, setNomorTelepon] = useState('');
+  const [editingAlamat, setEditingAlamat] = useState(false);
+  const [catatan, setCatatan] = useState('');
+  const [metodePembayaran, setMetodePembayaran] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [biayaPengiriman, setBiayaPengiriman] = useState(0);
+  const [kurirLabel, setKurirLabel] = useState('');
+  const [selectedProvinsi, setSelectedProvinsi] = useState('');
+const [selectedKota, setSelectedKota] = useState('');
+const [provinsiList, setProvinsiList] = useState([]);
+const [kotaList, setKotaList] = useState([]);
+const [walletBalance, setWalletBalance] = useState(0);
+const [showPinDialog, setShowPinDialog] = useState(false);
+const [pinInput, setPinInput] = useState('');
+const [pinError, setPinError] = useState('');
+const [discount, setDiscount] = useState(0);
+const [autoDiscountActive, setAutoDiscountActive] = useState(false);
+const [isVerifyingPin, setIsVerifyingPin] = useState(false);
 
-            {/* Search & Icons */}
-            <div className="flex items-center space-x-4 relative">
-      {/* Search Input untuk Laptop */}
-      <div
-        className={`hidden md:flex items-center transition-all duration-300 ease-in-out overflow-hidden ${isSearchVisible ? "w-48 opacity-100" : "w-0 opacity-0"}`}
-      >
-        <input
-          type="text"
-          placeholder="Cari produk..."
-          className="px-4 py-2 rounded-full focus:outline-none text-gray-700 w-full"
-        />
-        <FaTimes className="text-gray-500 hover:text-red-500 cursor-pointer ml-2" onClick={() => setIsSearchVisible(false)} />
-      </div>
-      
-      <AnimatePresence>
-  {isSearchVisible && (
-    <motion.div
-      initial={{ opacity: 0, y: 0 }} // Awalnya transparan & naik 50px
-      animate={{ opacity: 1, y: 0 }}   // Muncul dengan opacity 1 & posisi normal
-      exit={{ opacity: 0, y: 0 }}     // Menghilang dengan opacity 0 & naik ke atas lagi
-      transition={{ duration: 0.3, ease: "easeInOut" }} // Durasi smooth 0.3s
-      className="fixed right-0 w-full bg-white flex items-center px-4 rounded-full py-3 z-50 md:hidden shadow-md border-b border-gray-300"
-    >
-      <input
-        type="text"
-        placeholder="Cari produk..."
-        className="flex-1 px-4 py-2 rounded-full focus:outline-none text-gray-700 border border-gray-300"
-      />
-      <FaTimes 
-        className="text-gray-500 hover:text-red-500 cursor-pointer ml-3 text-2xl" 
-        onClick={() => setIsSearchVisible(false)} // Menutup dengan transisi
-      />
-    </motion.div>
-  )}
-</AnimatePresence>
 
-      {/* Search Icon */}
-      <FaSearch
-        className="text-black md:text-gray-600 text-xl cursor-pointer hover:text-yellow-500 transition"
-        onClick={() => setIsSearchVisible(!isSearchVisible)}
-      />
 
-      {/* Icon Navbar */}
-      <div className="hidden md:flex space-x-4 items-center text-gray-600">
-        <Link href="/cart"><FaShoppingCart className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-        <Link href="/chat"><FaCommentDots className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-        <Link href="/profile"><FaUserCircle className="text-xl cursor-pointer hover:text-yellow-500 transition" /></Link>
-      </div>
 
-      {/* Hamburger Menu untuk Mobile */}
-      <div className="md:hidden">
-        <FaBars className="text-2xl text-black cursor-pointer hover:text-yellow-500 transition" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-      </div>
-    </div>
-          </div>
-        </div>
+const ongkirByWilayah = (provinsiNama, kotaNama) => {
+  const prov = provinsiNama.toUpperCase();
+  const kota = kotaNama.toUpperCase();
 
-        {/* Sidebar Menu */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 100, damping: 20 }}
-              className="fixed top-0 right-0 w-50 h-screen backdrop-blur-md bg-white/30 shadow-lg flex flex-col items-end p-6 text-xl text-gray-800 z-40 rounded-l-3xl"
-            >
-              <div className="flex mb-6 border-b border-white/20 w-full justify-end">
-                <button onClick={() => setIsMobileMenuOpen(false)} className="text-teal-800">
-                  <X size={28} />
-                </button>
-              </div>
-              <Link href="/" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
-              <Link href="/marketplace" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Produk</Link>
-              <a href="#siklus" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Siklus Hidup</a>
-              <a href="#campaign" className="mb-4 hover:text-yellow-500 transition w-full" onClick={() => setIsMobileMenuOpen(false)}>Campaign</a>
-              <div className="flex space-x-6">
-                <Link href="/cart" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaShoppingCart className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-                <Link href="/chat" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaCommentDots className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-                <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)}>
-                  <FaUserCircle className="text-xl cursor-pointer hover:text-yellow-500 transition" />
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+  // 🟢 Jabodetabek
+  const isJabodetabek =
+    prov === 'DKI JAKARTA' ||
+    (prov === 'JAWA BARAT' && (kota.includes('DEPOK') || kota.includes('BEKASI') || kota.includes('BOGOR'))) ||
+    (prov === 'BANTEN' && kota.includes('TANGERANG'));
 
-      <div className="container mx-auto px-6 lg:px-16 mt-16 pt-4 mb-10">
-        {/* Ringkasan Belanja */}
-        <div className="bg-white shadow-lg rounded-3xl p-6">
-          <h2 className="text-xl font-semibold mb-4 text-black">Ringkasan Pembelian</h2>
-          {cartItems.length > 0 ? (
-            cartItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between mb-6 border-b pb-4">
-                <div className="flex items-center space-x-4">
-                  <Image src={item.images[0]} alt={item.name} width={80} height={80} className="rounded-lg" />
-                  <div>
-                    <h3 className="text-lg font-semibold text-black">{item.name}</h3>
-                    <p className="text-yellow-500 font-bold">
-                      Rp{item.price.toLocaleString('id-ID')}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right space-x-4">
-                  <span className="text-lg font-semibold">{item.quantity}</span>
-                  <p className="text-lg font-bold text-green-800">
-                    Rp{(item.price * item.quantity).toLocaleString('id-ID')}
-                  </p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-center text-gray-600">Keranjang Anda kosong.</p>
-          )}
-        </div>
+  if (isJabodetabek) return 16000;
 
-        {/* Alamat Pengiriman */}
-        <div className="bg-white shadow-lg rounded-3xl p-6 mt-6">
-          <h2 className="text-xl font-semibold mb-4 text-black">Alamat Pengiriman</h2>
-          <textarea
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="w-full p-4 border border-gray-300 rounded-lg"
-            placeholder="Masukkan alamat lengkap"
-          />
-        </div>
+  // 🟠 Non-Jabodetabek Jawa Barat
+  if (prov === 'JAWA BARAT') return 18000;
 
-        {/* Metode Pembayaran */}
-        <div className="bg-white shadow-lg rounded-3xl p-6 mt-6">
-          <h2 className="text-xl font-semibold mb-4 text-black">Metode Pembayaran</h2>
-          <div className="space-y-4">
-            <div>
-              <input
-                type="radio"
-                id="paymentMethod1"
-                name="paymentMethod"
-                value="COD"
-                checked={paymentMethod === 'COD'}
-                onChange={() => setPaymentMethod('COD')}
-                className="mr-2"
-              />
-              <label htmlFor="paymentMethod1" className="text-black">Bayar di Tempat (COD)</label>
-            </div>
-            <div>
-              <input
-                type="radio"
-                id="paymentMethod2"
-                name="paymentMethod"
-                value="Online"
-                checked={paymentMethod === 'Online'}
-                onChange={() => setPaymentMethod('Online')}
-                className="mr-2"
-              />
-              <label htmlFor="paymentMethod2" className="text-black">Pembayaran Online</label>
-            </div>
-          </div>
-        </div>
+  // 🟡 Jateng, Jatim, DIY
+  if (['JAWA TENGAH', 'JAWA TIMUR', 'DAERAH ISTIMEWA YOGYAKARTA'].includes(prov)) return 28000;
 
-        {/* Total Harga dan Tombol Order */}
-        {cartItems.length > 0 && (
-          <div className="mt-8 bg-white shadow-lg rounded-3xl p-6 flex justify-between items-center">
-            <div>
-              <h3 className="text-xl font-semibold text-black">Total Harga:</h3>
-              <p className="text-3xl font-bold text-green-800">
-                Rp{calculateTotal().toLocaleString('id-ID')}
-              </p>
-            </div>
-            <button
-              className="bg-green-700 text-white px-8 py-3 rounded-full shadow-md hover:bg-green-600 hover:scale-105 transform transition duration-300"
-              onClick={handlePlaceOrder}
-              disabled={!address || !paymentMethod}
-            >
-              {isOrderPlaced ? 'Pesanan Ditempatkan!' : 'Pesan Sekarang'}
-            </button>
-          </div>
-        )}
-      </div>
+  // 🔵 Sumatera Selatan & Barat
+  if (['SUMATERA SELATAN', 'SUMATERA BARAT'].includes(prov)) return 40000;
 
-      {/* Pop-up Konfirmasi Pembayaran */}
-      {showPopup && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black/50 z-50">
-          <div className="bg-white p-8 rounded-lg shadow-lg w-80 text-center">
-            <h3 className="text-xl font-semibold mb-4">Pembayaran Berhasil</h3>
-            <p className="text-gray-600 mb-4">Pesanan Anda sedang diproses...</p>
-            <button
-              onClick={() => setShowPopup(false)}
-              className="bg-green-700 text-white px-6 py-2 rounded-full"
-            >
-              Tutup
-            </button>
-          </div>
-        </div>
-      )}
-      
-      <footer className="bg-gray-900 text-gray-400 py-10 text-center">
-        <div className="container mx-auto px-6">
-          
-          {/* Menu Footer */}
-          <ul className="flex flex-wrap justify-center space-x-6 mb-4">
-            <li><a href="/swap" className="hover:text-yellow-500 transition">Tukar Pakaian</a></li>
-            <li><a href="/repair" className="hover:text-yellow-500 transition">Perbaiki</a></li>
-            <li><a href="/infografis" className="hover:text-yellow-500 transition">Artikel</a></li>
-            <li><a href="/terms" className="hover:text-yellow-500 transition">Syarat</a></li>
-            <li><a href="/privacy" className="hover:text-yellow-500 transition">Privasi</a></li>
-            <li><a href="/about" className="hover:text-yellow-500 transition">Tentang</a></li>
-          </ul>
-      
-          {/* Sosial Media */}
-          <div className="flex justify-center space-x-6 mb-4">
-            <a href="#" className="hover:text-yellow-500 transition text-2xl"><FaInstagram /></a>
-            <a href="#" className="hover:text-yellow-500 transition text-2xl"><FaTiktok /></a>
-          </div>
-      
-          {/* Copyright */}
-          <p className="text-sm text-gray-500">© 2025 Ryzmo. Built with 💚 for a greener future.</p>
-        </div>
-      </footer>
-      
-    </main>
-  );
+  // 🟣 Daerah lain
+  if (['ACEH', 'SUMATERA UTARA', 'NTB', 'NTT', 'BALI', 'KALIMANTAN TIMUR', 'SULAWESI SELATAN'].includes(prov)) return 60000;
+
+  // 🔴 Papua
+  if (prov === 'PAPUA') return 80000;
+
+  // ⚪ Default lainnya
+  return 60000;
 };
 
-export default CheckoutPage;
+
+
+
+
+  useEffect(() => {
+    const fetchCart = async () => {
+      const res = await fetch(`/api/cart/${userId}`);
+      const data = await res.json();
+      setCartItems(data);
+      setLoading(false);
+    };
+
+    
+    
+
+    if (userId) {
+      fetchCart();
+      fetchAlamat();
+    }
+  }, [userId]);
+
+  
+  useEffect(() => {
+    getProvinsiList().then((list) => {
+      setProvinsiList(list);
+    });
+  }, []);
+  const fetchAlamat = async () => {
+    const res = await fetch(`/api/user/${userId}`);
+    const data = await res.json();
+  
+    setAlamat(data.address || '');
+    setNamaPenerima(data.name || '');
+    setNomorTelepon(data.phone || '');
+  
+    // 🟢 Simpan provinsi & kota langsung
+    setSelectedKota(data.city || '');
+  
+    // Tunggu provinsiList tersedia sebelum cari ID
+    const matchingProv = provinsiList.find(p => p.nama === data.province);
+    if (matchingProv) {
+      setSelectedProvinsi(matchingProv.id);
+    }
+  
+    // Set ongkir berdasarkan data province + city
+    if (data.province && data.city) {
+      const ongkir = ongkirByWilayah(data.province, data.city);
+      setBiayaPengiriman(ongkir);
+      setKurirLabel(`Biaya flat: Rp${ongkir.toLocaleString('id-ID')}`);
+    }
+  };
+
+  useEffect(() => {
+    if (provinsiList.length && userId) {
+      fetchAlamat(); // dipanggil setelah provinsi siap
+    }
+  }, [provinsiList, userId]);
+  
+  
+
+useEffect(() => {
+  if (selectedProvinsi) {
+    getKotaList(selectedProvinsi).then(setKotaList);
+  } else {
+    setKotaList([]);
+  }
+}, [selectedProvinsi]);
+
+const handleUpdateAlamat = async () => {
+  if (!namaPenerima || !nomorTelepon || !alamat || !selectedProvinsi || !selectedKota) {
+    alert('Semua kolom alamat wajib diisi.');
+    return;
+  }
+
+  try {
+    const provNama = provinsiList.find((p) => p.id === selectedProvinsi)?.nama || '';
+
+    const res = await fetch(`/api/user/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: namaPenerima,
+        phone: nomorTelepon,
+        address: alamat,
+        province: provNama,
+        city: selectedKota
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      setAlamat(alamat);
+      setKurirLabel(`Biaya flat: Rp${ongkirByWilayah(provNama, selectedKota).toLocaleString('id-ID')}`);
+      setBiayaPengiriman(ongkirByWilayah(provNama, selectedKota));
+      setEditingAlamat(false);
+    } else {
+      alert(data.message || 'Gagal menyimpan alamat.');
+    }
+  } catch (err) {
+    console.error('Gagal update alamat:', err);
+  }
+};
+
+
+
+
+
+
+
+const handleBuatPesanan = async () => {
+  if (!namaPenerima || !nomorTelepon || !alamat || !selectedProvinsi || !selectedKota) {
+    alert('Mohon lengkapi alamat pengiriman terlebih dahulu.');
+    return;
+  }
+
+  const isSaldoCukup = walletBalance >= totalPembayaran;
+  if (!isSaldoCukup) {
+    const lanjut = confirm(`Saldo kamu tidak cukup. Pesanan akan dibuat berstatus menunggu pembayaran. Lanjutkan?`);
+    if (!lanjut) return;
+  }
+
+  if (isSaldoCukup) {
+    setShowPinDialog(true);
+    return;
+  }
+
+  await createOrder('Belum-Dibayar');
+};
+
+
+const createOrder = async (status = 'Dibayar') => {
+  try {
+    const newInvoiceNumber = generateInvoiceNumber();
+    const res = await fetch('/api/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        invoiceNumber: newInvoiceNumber,
+        userId,
+        items: cartItems.map(item => ({
+  productId: item.product.id,
+  quantity: item.quantity,
+  color: item.color || null,
+  size: item.size || null,
+  price: item.price
+})),
+        total: totalPembayaran,
+        shippingCost: biayaPengiriman,
+        metode: 'LiiyPay',
+        alamat,
+        provinsi: provinsiList.find(p => p.id === selectedProvinsi)?.nama || '',
+        kota: selectedKota,
+        phone: nomorTelepon,
+        buyerNote: catatan,
+        status,
+        expireAt: status === 'Belum-Dibayar'
+          ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          : null
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      // ✅ Kirim email notifikasi ke admin (panggil server API, bukan lib langsung)
+      try {
+        await fetch('/api/notify-admin-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: data.orderId })
+        });
+      } catch (err) {
+        console.error('❌ Gagal kirim notifikasi ke admin:', err);
+      }
+
+      // 🧹 Hapus item dari cart
+      await Promise.all(
+        cartItems.map((item) =>
+          fetch(`/api/cart/${userId}?itemId=${item.id}`, {
+            method: 'DELETE',
+          })
+        )
+      );
+
+      // 🔀 Redirect user
+      if (status === 'Dibayar') {
+        window.location.href = `/terimakasih?orderId=${data.orderId}`;
+      } else {
+        window.location.href = '/profile?section=pesanan';
+      }
+    } else {
+      alert(data.message || 'Gagal membuat pesanan.');
+    }
+  } catch (err) {
+    console.error('❌ Error buat pesanan:', err);
+    alert('Terjadi kesalahan.');
+  }
+};
+
+
+useEffect(() => {
+  const kategoriSet = new Set();
+  cartItems.forEach((item) => {
+    item.product.categories?.forEach((cat) => {
+      kategoriSet.add(cat.name);
+    });
+  });
+
+  if (kategoriSet.has("Gamis") && kategoriSet.has("Hijab")) {
+    setAutoDiscountActive(true);
+    setDiscount(10);
+  } else {
+    setAutoDiscountActive(false);
+    setDiscount(0);
+  }
+}, [cartItems]);
+
+
+
+  const subtotalProduk = cartItems.reduce((total, item) => {
+  return total + item.price * item.quantity;
+}, 0);
+
+
+  const biayaLayanan = 1000;
+  const totalPembayaran = subtotalProduk - (discount / 100) * subtotalProduk + biayaPengiriman + biayaLayanan;
+
+
+  useEffect(() => {
+    const fetchWallet = async () => {
+      try {
+        const res = await fetch(`/api/wallet/${userId}`);
+        const data = await res.json();
+        setWalletBalance(data.walletBalance || 0);
+      } catch (err) {
+        console.error('Gagal ambil saldo wallet:', err);
+      }
+    };
+  
+    if (userId) fetchWallet();
+  }, [userId]);
+  
+
+  if (loading) return <LoadingBar/>;
+
+  return (
+    
+    <main className="bg-white">
+      {/* Minimal Checkout Navbar */}
+<div className="w-full shadow-sm max-w-5xl mx-auto bg-white px-4 py-3 flex items-center justify-between">
+  <a href="/" className="flex items-center space-x-2">
+    <img src="/logo.jpg" alt="Logo" className="w-8 h-8 object-contain" />
+    <span className="text-xl font-bold text-gray-800">LiiyStore</span>
+  </a>
+  <span className="text-sm text-gray-500 hidden sm:block">
+    Checkout 🔒
+  </span>
+</div>
+
+
+      <div className="max-w-5xl bg-white text-black mx-auto px-4 py-10 space-y-6">
+      
+      <h1 className="text-2xl font-bold mb-4">Checkout</h1>
+
+      <div className="border p-4 rounded shadow">
+  <div className="flex justify-between items-center mb-2">
+    <h2 className="text-lg font-semibold text-red-600">Alamat Pengiriman</h2>
+    <button
+      onClick={editingAlamat ? handleUpdateAlamat : () => setEditingAlamat(true)}
+      className="text-blue-600 text-sm hover:underline"
+    >
+      {editingAlamat ? 'Simpan' : 'Ubah'}
+    </button>
+  </div>
+
+  {editingAlamat ? (
+    <div className="space-y-2">
+      <input
+        type="text"
+        className="w-full border p-2 rounded"
+        value={namaPenerima}
+        onChange={(e) => setNamaPenerima(e.target.value)}
+        placeholder="Nama Penerima"
+      />
+      <input
+        type="text"
+        className="w-full border p-2 rounded"
+        value={nomorTelepon}
+        onChange={(e) => setNomorTelepon(e.target.value)}
+        placeholder="Nomor Telepon"
+      />
+      <textarea
+        className="w-full border p-2 rounded"
+        rows={2}
+        value={alamat}
+        onChange={(e) => setAlamat(e.target.value)}
+        placeholder="Alamat Lengkap (Nama Jalan, RT/RW, dsb)"
+      />
+
+      <select
+        className="w-full border p-2 rounded"
+        value={selectedProvinsi}
+        onChange={(e) => {
+          setSelectedProvinsi(e.target.value);
+          setSelectedKota('');
+          setBiayaPengiriman(0);
+          setKurirLabel('');
+        }}
+      >
+        <option value="">-- Pilih Provinsi --</option>
+        {provinsiList.map((prov) => (
+          <option key={prov.id} value={prov.id}>{prov.nama}</option>
+        ))}
+      </select>
+
+      {selectedProvinsi && (
+        <select
+          className="w-full border p-2 rounded"
+          value={selectedKota}
+          onChange={(e) => {
+            setSelectedKota(e.target.value);
+            const provNama = provinsiList.find((p) => p.id === selectedProvinsi)?.nama || '';
+            const ongkir = ongkirByWilayah(provNama, e.target.value);
+            setBiayaPengiriman(ongkir);
+            setKurirLabel(`Biaya flat: Rp${ongkir.toLocaleString('id-ID')}`);
+          }}
+        >
+          <option value="">-- Pilih Kota/Kabupaten --</option>
+          {kotaList.map((kota) => (
+            <option key={kota.id} value={kota.nama}>{kota.nama}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  ) : (
+    <>
+      <p className="font-bold">{namaPenerima} (+62) {nomorTelepon}</p>
+<p className="text-sm text-gray-700 mt-1">{alamat}</p>
+<p className="text-sm text-gray-700">{selectedKota}, {provinsiList.find(p => p.id === selectedProvinsi)?.nama || ''}</p>
+{kurirLabel && (
+  <p className="text-xs text-green-600 mt-1">{kurirLabel}</p>
+)}
+    </>
+  )}
+</div>
+
+
+      <div className="border p-4 rounded shadow">
+        <h2 className="text-lg font-semibold mb-4">🛍️ Produk Dipesan</h2>
+        {cartItems.map((item) => (
+  <div key={item.id} className="flex items-center gap-4 border-b py-3">
+    <img
+      src={typeof item.product.imageUrls[0] === 'string' ? item.product.imageUrls[0] : item.product.imageUrls[0]?.url}
+      alt={item.product.name}
+      className="w-20 h-20 object-cover rounded"
+    />
+    <div className="flex-1">
+      <p className="text-sm font-medium">{item.product.name}</p>
+      {item.color && <p className="text-xs text-gray-600">Warna: {item.color}</p>}
+      <p className="text-xs text-gray-600">Ukuran: {item.size}</p>
+      <p className="text-xs text-gray-600">Jumlah: {item.quantity}</p>
+    </div>
+    <p className="text-sm font-semibold">
+      Rp{(item.price * item.quantity).toLocaleString('id-ID')}
+    </p>
+  </div>
+))}
+
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium mb-1">Pesan untuk Penjual</label>
+          <input className="w-full border p-2 rounded" value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="(Opsional) Tinggalkan pesan" />
+        </div>
+      </div>
+
+      <div className="border p-4 rounded shadow">
+        <div className="flex justify-between items-center">
+        <p className="text-sm font-medium">
+  Opsi Pengiriman: <strong>{kurirLabel || 'Biaya akan ditentukan setelah memilih provinsi'}</strong>
+</p>
+
+          <p className="text-sm">Rp{biayaPengiriman.toLocaleString('id-ID')}</p>
+        </div>
+        {kurirLabel && (
+  <p className="text-xs text-green-600 mt-1">Estimasi pengiriman berdasarkan provinsi tujuan</p>
+)}
+
+      </div>
+
+      <div className="border p-4 rounded shadow relative">
+  <h2 className="text-lg font-semibold mb-2">💳 Metode Pembayaran</h2>
+  <p className="text-sm font-medium">Pembayaran akan menggunakan saldo LiiyPay kamu.</p>
+  <p className="text-sm text-green-700 mt-2">
+    Saldo LiiyPay kamu: <strong>Rp{walletBalance.toLocaleString('id-ID')}</strong>
+  </p>
+  {walletBalance < totalPembayaran && (
+    <p className="text-sm text-red-600 mt-1">
+      ❗ Saldo kamu kurang sebesar <strong>Rp{(totalPembayaran - walletBalance).toLocaleString('id-ID')}</strong>. Pesanan akan berstatus <em>menunggu pembayaran</em>.
+    </p>
+  )}
+  <a
+    href="/wallet"
+    className="absolute top-4 right-4 text-sm text-blue-600 hover:text-blue-800 font-semibold"
+  >
+    ➕ Top Up
+  </a>
+</div>
+
+      <div className="border p-4 rounded shadow">
+        <div className="space-y-1 text-sm text-gray-700">
+          <div className="flex justify-between">
+            <span>Subtotal Produk</span>
+            <span>Rp{subtotalProduk.toLocaleString('id-ID')}</span>
+          </div>
+          {discount > 0 && (
+  <div className="flex justify-between text-sm text-green-600">
+    <span>Diskon Otomatis</span>
+    <span>-Rp{((discount / 100) * subtotalProduk).toLocaleString('id-ID')}</span>
+  </div>
+)}
+
+          <div className="flex justify-between">
+            <span>Subtotal Pengiriman</span>
+            <span>Rp{biayaPengiriman.toLocaleString('id-ID')}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Biaya Layanan</span>
+            <span>Rp{biayaLayanan.toLocaleString('id-ID')}</span>
+          </div>
+          <div className="flex justify-between font-bold text-red-600 text-base pt-2">
+            <span>Total Pembayaran</span>
+            <span>Rp{totalPembayaran.toLocaleString('id-ID')}</span>
+          </div>
+        </div>
+        <button
+  onClick={handleBuatPesanan}
+  className="mt-6 w-full bg-orange-500 text-white py-3 rounded hover:bg-orange-600 font-semibold"
+>
+  Buat Pesanan
+</button>
+      </div>
+      {showPinDialog && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-xs space-y-4">
+      <h3 className="text-lg font-semibold text-center">Masukkan PIN LiiyPay</h3>
+      <input
+        type="password"
+        maxLength={6}
+        className="border p-2 w-full rounded text-center tracking-widest"
+        placeholder="••••••"
+        value={pinInput}
+        onChange={(e) => setPinInput(e.target.value)}
+      />
+      {pinError && <p className="text-sm text-red-600">{pinError}</p>}
+      <div className="flex justify-between gap-2">
+        <button
+          onClick={() => setShowPinDialog(false)}
+          className="w-full text-sm text-gray-600 hover:underline"
+        >
+          Batal
+        </button>
+        <button
+  disabled={isVerifyingPin}
+  onClick={async () => {
+    setIsVerifyingPin(true);
+    setPinError('');
+    try {
+      const res = await fetch('/api/wallet/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, pin: pinInput }),
+      });
+
+      const result = await res.json();
+      if (res.ok) {
+        await createOrder('Dibayar');
+      } else {
+        setPinError(result.message || 'PIN salah');
+      }
+    } catch (err) {
+      console.error('❌ Error verifikasi PIN:', err);
+      setPinError('Gagal verifikasi PIN.');
+    } finally {
+      setIsVerifyingPin(false);
+    }
+  }}
+  className={`w-full py-2 rounded ${isVerifyingPin ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+>
+  {isVerifyingPin ? 'Memverifikasi...' : 'Konfirmasi'}
+</button>
+
+      </div>
+    </div>
+  </div>
+)}
+
+    </div>
+    </main>
+  );
+}
+
+export const getServerSideProps = withAuth(async ({ user }) => {
+  return {
+    props: {
+      userId: user.id,
+    },
+  };
+});

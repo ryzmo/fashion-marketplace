@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  email              String              @unique
+  password           String
+  phone              String?
+  address            String?
+  province           String?             // ⬅️ baru
+  city               String?  
+  createdAt          DateTime            @default(now())
+  role               String              @default("user")
+  chatMessages       ChatMessage[]
+  orders             Order[]
+  cartItems          CartItem[]
+  wishlistItems      WishlistItem[]
+  usedCoupons        UsedCoupon[]        @relation("UserUsedCoupons") // ✅ relasi balik
+  walletBalance      Int                 @default(0) // Tambahkan ini
+  walletTransactions WalletTransaction[]
+  pin String? @db.VarChar(6)
+}
+
+model Product {
+  id            Int      @id @default(autoincrement())
+  name          String
+  price         Int?
+  discountPrice Int?
+  stock         Int?
+  size          String?
+  description   String
+  imageUrls     Json
+  createdAt     DateTime @default(now())
+  purchaseCount Int      @default(0)
+  rating        Int      @default(5)
+  isSale        Boolean  @default(false) // ✅ Tambahkan di sini
+
+  categories    Category[]     @relation("ProductCategories")
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
+  wishlistItems WishlistItem[]
+  reviews       Json?
+
+  variants      ProductVariant[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique // ⬅️ WAJIB DITAMBAHKAN
+  products Product[] @relation("ProductCategories")
+}
+
+model Order {
+  id           Int         @id @default(autoincrement())
+  invoiceNumber   String   @unique 
+  userId       Int
+  total        Int
+  shippingCost Int
+  buyerNote String?
+  status       String
+  note         String? 
+  returnReason   String?
+  returnEvidence  String?
+  returnTrackingNumber String?  // ✅ Tambahkan ini
+  returnCourierName    String? 
+  trackingNumber  String?     // ⬅️ Tambahkan ini
+  estimateArrival String?     // ⬅️ Dan ini
+  createdAt    DateTime    @default(now())
+  user         User        @relation(fields: [userId], references: [id])
+  items        OrderItem[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  color     String?     // ✅ Tambahkan ini
+  size      String? 
+  price      Int 
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  sender    String
+  message   String
+  read      Boolean  @default(false) // ✅ Tambahkan field ini
+  createdAt DateTime @default(now())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  size      String
+  color     String?
+  quantity  Int      @default(1)
+  price     Int
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model WishlistItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+}
+
+model Coupon {
+  id              Int          @id @default(autoincrement())
+  code            String       @unique
+  discountPercent Int
+  maxDiscount     Int
+  minPurchase     Int
+  createdAt       DateTime     @default(now())
+  expiresAt       DateTime?
+  usedBy          UsedCoupon[] @relation("CouponUsedCoupons") // ✅ relasi balik
+}
+
+model UsedCoupon {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  couponId Int
+  usedAt   DateTime @default(now())
+
+  user   User   @relation("UserUsedCoupons", fields: [userId], references: [id])
+  coupon Coupon @relation("CouponUsedCoupons", fields: [couponId], references: [id])
+
+  @@unique([userId, couponId])
+}
+
+model WalletTransaction {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Int
+  orderId   String   @unique
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model Blog {
+  id           Int      @id @default(autoincrement())
+  title        String
+  slug         String   @unique
+  date         DateTime
+  summary      String
+  content      String
+  mainImage    String   // URL gambar utama (Cloudinary)
+  otherImages  Json     // Array URL gambar lainnya
+  createdAt    DateTime @default(now())
+}
+
+model ProductVariant {
+  id            Int      @id @default(autoincrement())
+  productId     Int
+  product       Product  @relation(fields: [productId], references: [id])
+
+  variantName   String   // contoh: "Hitam - M"
+  color         String?
+  size          String
+  price         Int
+  discountPrice Int?
+  stock         Int
+  imageUrls     Json     // array atau 1 gambar
+  sku           String   @unique
+}
